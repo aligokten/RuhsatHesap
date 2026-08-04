@@ -1,0 +1,66 @@
+name: Build APX
+
+# Produces a downloadable RuhsatHesap.apx for Archicad 29 (Windows x64) so the
+# add-on can be installed without a local Visual Studio / DevKit toolchain.
+# Tools/BuildAddOn.py downloads the API DevKit itself, so nothing else is needed.
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'claude/**'
+  workflow_dispatch:
+
+jobs:
+  build-apx:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Read add-on version
+        id: cfg
+        shell: pwsh
+        run: |
+          $cfg = Get-Content config.json -Raw | ConvertFrom-Json
+          "version=$($cfg.version)" >> $env:GITHUB_OUTPUT
+          "addOnName=$($cfg.addOnName)" >> $env:GITHUB_OUTPUT
+
+      - name: Build Release
+        shell: pwsh
+        run: |
+          python Tools/BuildAddOn.py `
+            --configFile config.json `
+            --acVersion 29 `
+            --buildConfig Release `
+            --additionalCMakeParams AC_ADDON_WARNINGS_AS_ERRORS=OFF
+
+      - name: Locate the .apx
+        id: apx
+        shell: pwsh
+        run: |
+          $apx = Get-ChildItem -Path Build -Recurse -Filter '*.apx' | Select-Object -First 1
+          if (-not $apx) {
+              Write-Host '::error::No .apx was produced by the build.'
+              Get-ChildItem -Path Build -Recurse -Depth 4 | Select-Object FullName
+              exit 1
+          }
+          Write-Host "Found: $($apx.FullName)  ($([math]::Round($apx.Length / 1KB)) KB)"
+          "path=$($apx.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload add-on
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.cfg.outputs.addOnName }}-Archicad29-Windows-v${{ steps.cfg.outputs.version }}
+          path: ${{ steps.apx.outputs.path }}
+          if-no-files-found: error
+          retention-days: 90

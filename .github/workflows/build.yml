@@ -12,6 +12,9 @@ jobs:
     runs-on: ${{ matrix.os-type }}
 
     strategy:
+      # Without this, the first failing matrix leg cancels every other job, which
+      # hides the result of the Archicad 29 build this project actually targets.
+      fail-fast: false
       matrix:
         os-type: [ windows-2022, macos-14 ]
         ac-version: [ 25, 26, 27, 28, 29 ]
