@@ -1,0 +1,15 @@
+{
+    "addOnName": "RuhsatHesap",
+    "defaultLanguage": "INT",
+    "languages": [
+        "INT",
+        "GER",
+        "JPN"
+    ],
+    "version": "0.5.9",
+    "copyright": {
+        "name": "Ali Gökten",
+        "year": "2026"
+    },
+    "description": "Mimari ruhsat projeleri için alan ve yönetmelik hesaplama eklentisi"
+}

@@ -1,0 +1,16 @@
+# cmd.exe reads batch files byte by byte and mis-parses multi-line blocks
+# (`if ... ( ... )`) when the file has LF-only line endings: the block can be
+# torn apart so that the script exits before it ever reaches the cmake call.
+# Force CRLF for the Windows entry-point scripts so they survive checkout,
+# `git archive`, and any source zip produced from this repository.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# The embedded web panel is copied verbatim into the .apx as a DATA resource;
+# keep it byte-identical instead of letting git rewrite its line endings.
+*.html -text
+
+# Vendored trees (Tools/, ThirdParty/) keep whatever the upstream projects ship.
+Tools/**            -text
+ThirdParty/**       -text

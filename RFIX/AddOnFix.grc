@@ -1,0 +1,14 @@
+#include "ResourceIds.hpp"
+
+'MDID' 32500 "Add-On Identifier" {
+	910438228 /* Graphisoft Developer ID */
+	789987190 /* Ruhsat Hesap Local ID */
+}
+
+'GICN' 10001 "AddOnIcon" {
+	"AddOnIcon"
+}
+
+'DATA' ID_WEB_APP_DATA "Ruhsat Hesap Embedded Web Panel" {
+	"RuhsatHesapPanel.html"
+}

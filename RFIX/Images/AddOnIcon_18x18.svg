@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Ruhsat Hesap BIM katmanları logosu</title>
+  <g shape-rendering="geometricPrecision">
+    <path fill="#171B1C" d="M12 10 31 1.5 46 8.5V22l-7 3.5V13l-8-4-9 4.5v15l6 3V18l6 3v14.5L30 38l-18-9V10Z"/>
+    <path fill="#18A05E" d="m12 31.5 18 9 16-8v4l-16 8-18-9v-4Z"/>
+    <path fill="#171B1C" d="m12 38 18 9 16-8v7l-16 8-18-9v-7Z"/>
+    <path fill="#171B1C" d="m12 48 18 9 16-8v6l-16 8-18-9v-6Z"/>
+  </g>
+</svg>
