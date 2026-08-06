@@ -45,6 +45,7 @@ std::string Normalize (std::string value)
 ZoneAreaType ParseAreaType (const std::string& value)
 {
     const std::string normalized = Normalize (value);
+    if (normalized.empty ()) return ZoneAreaType::Unknown;
     if (normalized == "NET") return ZoneAreaType::Net;
     if (normalized == "BRUT" || normalized == "GROSS") return ZoneAreaType::Gross;
     if (normalized == "EKLENTI_NET" || normalized == "EKLENTINET") return ZoneAreaType::ExtensionNet;
@@ -58,7 +59,9 @@ ZoneAreaType ParseAreaType (const std::string& value)
     if (normalized == "SIGINAK") return ZoneAreaType::Shelter;
     if (normalized == "SACAK") return ZoneAreaType::Eave;
     if (normalized == "ASANSOR") return ZoneAreaType::Elevator;
-    return ZoneAreaType::Unknown;
+    // Anything else becomes a user-defined Yapi Insaat Alani / Emsal Hesabi
+    // %30 kalemi; see NormalizeAreaKey for how its column key is derived.
+    return ZoneAreaType::CustomFloorArea;
 }
 
 bool ParseHesapTarget (const std::string& value)
@@ -66,11 +69,33 @@ bool ParseHesapTarget (const std::string& value)
     return Normalize (value) == "EMSAL";
 }
 
+// Derives a FloorRecord::constructionAreas / thirtyPercentAreas map key (and
+// auxiliaryData column key) from a free-form TIP value, e.g. "Havuz Kenari"
+// -> "havuz_kenari". Mirrors RuhsatHesapPanel.html's normalizeAreaKey (ASCII
+// lowercased, whitespace runs collapsed to a single underscore) but only
+// touches the plain-ASCII letter range so multi-byte UTF-8 sequences (Turkish
+// characters) pass through unchanged rather than being corrupted byte-by-byte.
+std::string NormalizeAreaKey (const std::string& rawValue)
+{
+    const std::string value = Trim (rawValue);
+    std::string result;
+    result.reserve (value.size ());
+    bool pendingUnderscore = false;
+    for (unsigned char character : value) {
+        if (std::isspace (character) != 0) {
+            if (!result.empty ()) pendingUnderscore = true;
+            continue;
+        }
+        if (pendingUnderscore) { result += '_'; pendingUnderscore = false; }
+        result += (character >= 'A' && character <= 'Z') ? static_cast<char> (character - 'A' + 'a') : static_cast<char> (character);
+    }
+    return result;
+}
+
 // Key used both as the FloorRecord::constructionAreas / thirtyPercentAreas map
-// key and as the auto-registered column header in auxiliaryData. Only valid
-// for the floor/common-level area types handled by the aggregation switch
-// below (Stair, Hall, Shelter, Eave, Elevator); returns an empty string
-// otherwise.
+// key and as the auto-registered column header in auxiliaryData, for the
+// fixed named area types. CustomFloorArea has no fixed key -- its key comes
+// from ParsedZoneName::floorAreaKey (see NormalizeAreaKey) instead.
 std::string FloorAreaKey (ZoneAreaType areaType)
 {
     switch (areaType) {
@@ -228,7 +253,10 @@ ParsedZoneName ParseZoneName (const std::string& zoneName)
         const std::string value = Trim (token.substr (separator + 1));
         if (key == "BLOK" || key == "B") result.blockName = Normalize (value);
         else if (key == "BB" || key == "BAGIMSIZBOLUM") result.unitNumber = value;
-        else if (key == "TIP" || key == "T") result.areaType = ParseAreaType (value);
+        else if (key == "TIP" || key == "T") {
+            result.areaType = ParseAreaType (value);
+            if (result.areaType == ZoneAreaType::CustomFloorArea) result.floorAreaKey = NormalizeAreaKey (value);
+        }
         else if (key == "ODA" || key == "O") {
             try { result.roomCount = std::max (0, std::stoi (value)); } catch (...) { result.roomCount = 0; }
         } else if (key == "MAHAL" || key == "M") result.roomName = value;
@@ -326,13 +354,16 @@ ZoneSyncResult SyncZonesToProject (ProjectData& project, const std::vector<ZoneO
                 case ZoneAreaType::Hall:
                 case ZoneAreaType::Eave:
                 case ZoneAreaType::Elevator:
+                case ZoneAreaType::CustomFloorArea: {
                     // HESAP=EMSAL routes the same measured area into the Emsal
                     // Hesabi %30 istisna tablosu instead of Yapi Insaat Alani.
                     // Sığınak is intentionally excluded: it always feeds Yapi
                     // Insaat Alani plus the dedicated Sığınak Hesabi total.
-                    if (parsed.toThirtyPercentTable) floorAggregate.thirtyPercentAreas[FloorAreaKey (parsed.areaType)] += observation.area;
-                    else floorAggregate.constructionAreas[FloorAreaKey (parsed.areaType)] += observation.area;
+                    const std::string& areaKey = parsed.areaType == ZoneAreaType::CustomFloorArea ? parsed.floorAreaKey : FloorAreaKey (parsed.areaType);
+                    if (parsed.toThirtyPercentTable) floorAggregate.thirtyPercentAreas[areaKey] += observation.area;
+                    else floorAggregate.constructionAreas[areaKey] += observation.area;
                     break;
+                }
                 case ZoneAreaType::Shelter:
                     floorAggregate.constructionAreas["siginak"] += observation.area;
                     shelterAreaFromZones += observation.area;
@@ -376,6 +407,7 @@ ZoneSyncResult SyncZonesToProject (ProjectData& project, const std::vector<ZoneO
             case ZoneAreaType::Shelter:
             case ZoneAreaType::Eave:
             case ZoneAreaType::Elevator:
+            case ZoneAreaType::CustomFloorArea:
             case ZoneAreaType::Unknown: break;
         }
     }

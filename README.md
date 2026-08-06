@@ -20,6 +20,7 @@ Bu paket, Ruhsat Hesap web arayüzünü Archicad 29.2.0 Build 5003 (Windows x64)
 - Net, brüt, eklenti net/brüt ve balkon zon alanlarının bağımsız bölüm bazında toplanması
 - `ORTAK`, `MERDIVEN`, `HOL`, `EMSAL`, `EMSAL_DISI`, `SIGINAK`, `SACAK` ve `ASANSOR` zonlarının ilgili ortak alan, yapı inşaat alanı, emsal ve sığınak modüllerine blok/kat bazında aktarılması
 - `MERDIVEN`, `HOL`, `SACAK` ve `ASANSOR` zonlarında `HESAP=EMSAL` ile aynı alanın Emsal Hesabı %30 istisna tablosuna yönlendirilmesi
+- Sabit listede olmayan herhangi bir `TIP` değeriyle (örn. `TIP=HAVUZ_KENARI`) kendi Yapı İnşaat Alanı / Emsal Hesabı %30 kaleminin otomatik oluşturulması
 - Emsal hesabındaki kat holü ile Yapı İnşaat Alanı toplam hol verisinin birbirinden bağımsız tutulması
 - Bağımsız bölümlerin panel, JSON, Excel ve PNG paftada numaraya göre doğal sayısal sırada (`7, 8, 9, 10`) gösterilmesi
 - Kat ve alan satırı adlarının Archicad çizim odağına kaçmayan panel içi metin penceresiyle girilmesi
