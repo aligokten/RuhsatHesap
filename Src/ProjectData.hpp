@@ -51,6 +51,7 @@ struct FloorRecord {
     // repeated import can replace only its own contribution and preserve
     // any manual adjustment made in the panel.
     std::map<std::string, double> archicadZoneConstructionAreas;
+    std::map<std::string, double> archicadZoneThirtyPercentAreas;
     double archicadZoneEmsalOutsideArea = 0.0;
     double archicadZoneEmsalArea = 0.0;
     bool archicadLinked = false;

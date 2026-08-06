@@ -56,7 +56,55 @@ ZoneAreaType ParseAreaType (const std::string& value)
     if (normalized == "EMSAL") return ZoneAreaType::Emsal;
     if (normalized == "EMSAL_DISI" || normalized == "EMSALDISI") return ZoneAreaType::EmsalOutside;
     if (normalized == "SIGINAK") return ZoneAreaType::Shelter;
+    if (normalized == "SACAK") return ZoneAreaType::Eave;
     return ZoneAreaType::Unknown;
+}
+
+bool ParseHesapTarget (const std::string& value)
+{
+    return Normalize (value) == "EMSAL";
+}
+
+// Key used both as the FloorRecord::constructionAreas / thirtyPercentAreas map
+// key and as the auto-registered column header in auxiliaryData. Only valid
+// for the floor/common-level area types handled by the aggregation switch
+// below (Stair, Hall, Shelter, Eave); returns an empty string otherwise.
+std::string FloorAreaKey (ZoneAreaType areaType)
+{
+    switch (areaType) {
+        case ZoneAreaType::Stair: return "merdiven";
+        case ZoneAreaType::Hall: return "hol";
+        case ZoneAreaType::Shelter: return "siginak";
+        case ZoneAreaType::Eave: return "sacak";
+        default: return "";
+    }
+}
+
+// Mirrors the default column lists seeded by RuhsatHesapPanel.html's
+// normalize(). Keeping the two in sync means a key auto-registered here
+// renders as a real column immediately, instead of a value hidden inside an
+// unlisted map key.
+void EnsureAreaKeyColumn (nlohmann::json& auxiliaryData, const char* arrayField, const std::string& key)
+{
+    static const std::vector<std::string> thirtyPercentDefaults = {
+        "merdiven", "acik_cikma", "sacak", "havuz", "asansor", "kat_holu", "giris_terasi"
+    };
+    static const std::vector<std::string> constructionDefaults = {
+        "merdiven", "asansor", "bosluklar", "siginak", "sacak", "makina_odasi",
+        "enerji_odasi", "hol", "su_deposu", "haberlesme_odasi"
+    };
+    const bool isThirtyPercent = std::string (arrayField) == "thirtyPercentKeys";
+
+    nlohmann::json& array = auxiliaryData[arrayField];
+    if (!array.is_array ()) {
+        array = nlohmann::json::array ();
+        for (const std::string& defaultKey : (isThirtyPercent ? thirtyPercentDefaults : constructionDefaults))
+            array.push_back (defaultKey);
+    }
+    const bool alreadyPresent = std::any_of (array.begin (), array.end (), [&] (const nlohmann::json& entry) {
+        return entry.is_string () && entry.get<std::string> () == key;
+    });
+    if (!alreadyPresent) array.push_back (key);
 }
 
 bool IsIndependentUnitArea (ZoneAreaType areaType)
@@ -108,6 +156,7 @@ struct FloorAreaAggregate {
     std::string floorName;
     int floorIndex = 0;
     std::map<std::string, double> constructionAreas;
+    std::map<std::string, double> thirtyPercentAreas;
     double emsalArea = 0.0;
     double emsalOutsideArea = 0.0;
 };
@@ -181,6 +230,7 @@ ParsedZoneName ParseZoneName (const std::string& zoneName)
             try { result.roomCount = std::max (0, std::stoi (value)); } catch (...) { result.roomCount = 0; }
         } else if (key == "MAHAL" || key == "M") result.roomName = value;
         else if (key == "NITELIK" || key == "N") result.quality = value;
+        else if (key == "HESAP" || key == "H") result.toThirtyPercentTable = ParseHesapTarget (value);
     }
 
     if (result.blockName.empty ()) result.error = "BLOK eksik";
@@ -207,9 +257,14 @@ ZoneSyncResult SyncZonesToProject (ProjectData& project, const std::vector<ZoneO
                 floor.constructionAreas[key] = WithoutPreviousImport (floor.constructionAreas[key], importedValue);
                 if (std::abs (floor.constructionAreas[key]) < 1.0e-9) floor.constructionAreas.erase (key);
             }
+            for (const auto& [key, importedValue] : floor.archicadZoneThirtyPercentAreas) {
+                floor.thirtyPercentAreas[key] = WithoutPreviousImport (floor.thirtyPercentAreas[key], importedValue);
+                if (std::abs (floor.thirtyPercentAreas[key]) < 1.0e-9) floor.thirtyPercentAreas.erase (key);
+            }
             floor.emsalArea = WithoutPreviousImport (floor.emsalArea, floor.archicadZoneEmsalArea);
             floor.emsalOutsideArea = WithoutPreviousImport (floor.emsalOutsideArea, floor.archicadZoneEmsalOutsideArea);
             floor.archicadZoneConstructionAreas.clear ();
+            floor.archicadZoneThirtyPercentAreas.clear ();
             floor.archicadZoneEmsalArea = 0.0;
             floor.archicadZoneEmsalOutsideArea = 0.0;
         }
@@ -264,8 +319,16 @@ ZoneSyncResult SyncZonesToProject (ProjectData& project, const std::vector<ZoneO
             floorAggregate.floorName = observation.storyName;
             floorAggregate.floorIndex = observation.storyIndex;
             switch (parsed.areaType) {
-                case ZoneAreaType::Stair: floorAggregate.constructionAreas["merdiven"] += observation.area; break;
-                case ZoneAreaType::Hall: floorAggregate.constructionAreas["hol"] += observation.area; break;
+                case ZoneAreaType::Stair:
+                case ZoneAreaType::Hall:
+                case ZoneAreaType::Eave:
+                    // HESAP=EMSAL routes the same measured area into the Emsal
+                    // Hesabi %30 istisna tablosu instead of Yapi Insaat Alani.
+                    // Sığınak is intentionally excluded: it always feeds Yapi
+                    // Insaat Alani plus the dedicated Sığınak Hesabi total.
+                    if (parsed.toThirtyPercentTable) floorAggregate.thirtyPercentAreas[FloorAreaKey (parsed.areaType)] += observation.area;
+                    else floorAggregate.constructionAreas[FloorAreaKey (parsed.areaType)] += observation.area;
+                    break;
                 case ZoneAreaType::Shelter:
                     floorAggregate.constructionAreas["siginak"] += observation.area;
                     shelterAreaFromZones += observation.area;
@@ -307,6 +370,7 @@ ZoneSyncResult SyncZonesToProject (ProjectData& project, const std::vector<ZoneO
             case ZoneAreaType::Emsal:
             case ZoneAreaType::EmsalOutside:
             case ZoneAreaType::Shelter:
+            case ZoneAreaType::Eave:
             case ZoneAreaType::Unknown: break;
         }
     }
@@ -323,6 +387,12 @@ ZoneSyncResult SyncZonesToProject (ProjectData& project, const std::vector<ZoneO
         for (const auto& [areaKey, value] : aggregate.constructionAreas) {
             floor.constructionAreas[areaKey] += value;
             floor.archicadZoneConstructionAreas[areaKey] = value;
+            EnsureAreaKeyColumn (project.auxiliaryData, "constructionKeys", areaKey);
+        }
+        for (const auto& [areaKey, value] : aggregate.thirtyPercentAreas) {
+            floor.thirtyPercentAreas[areaKey] += value;
+            floor.archicadZoneThirtyPercentAreas[areaKey] = value;
+            EnsureAreaKeyColumn (project.auxiliaryData, "thirtyPercentKeys", areaKey);
         }
         floor.emsalArea += aggregate.emsalArea;
         floor.emsalOutsideArea += aggregate.emsalOutsideArea;

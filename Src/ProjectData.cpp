@@ -107,6 +107,7 @@ void to_json (nlohmann::json& j, const FloorRecord& v)
 {
     j={{"name",v.name},{"thirtyPercentAreas",v.thirtyPercentAreas},{"constructionAreas",v.constructionAreas},{"emsalOutsideArea",v.emsalOutsideArea},{"emsalArea",v.emsalArea}};
     if (!v.archicadZoneConstructionAreas.empty ()) j["archicadZoneConstructionAreas"] = v.archicadZoneConstructionAreas;
+    if (!v.archicadZoneThirtyPercentAreas.empty ()) j["archicadZoneThirtyPercentAreas"] = v.archicadZoneThirtyPercentAreas;
     if (v.archicadZoneEmsalOutsideArea != 0.0) j["archicadZoneEmsalOutsideArea"] = v.archicadZoneEmsalOutsideArea;
     if (v.archicadZoneEmsalArea != 0.0) j["archicadZoneEmsalArea"] = v.archicadZoneEmsalArea;
     if (v.archicadLinked) {
@@ -118,7 +119,7 @@ void to_json (nlohmann::json& j, const FloorRecord& v)
 void from_json (const nlohmann::json& j, FloorRecord& v)
 {
     ReadOptional(j,"name",v.name); ReadOptional(j,"thirtyPercentAreas",v.thirtyPercentAreas); ReadOptional(j,"constructionAreas",v.constructionAreas); ReadOptional(j,"emsalOutsideArea",v.emsalOutsideArea); ReadOptional(j,"emsalArea",v.emsalArea);
-    ReadOptional(j,"archicadZoneConstructionAreas",v.archicadZoneConstructionAreas); ReadOptional(j,"archicadZoneEmsalOutsideArea",v.archicadZoneEmsalOutsideArea); ReadOptional(j,"archicadZoneEmsalArea",v.archicadZoneEmsalArea);
+    ReadOptional(j,"archicadZoneConstructionAreas",v.archicadZoneConstructionAreas); ReadOptional(j,"archicadZoneThirtyPercentAreas",v.archicadZoneThirtyPercentAreas); ReadOptional(j,"archicadZoneEmsalOutsideArea",v.archicadZoneEmsalOutsideArea); ReadOptional(j,"archicadZoneEmsalArea",v.archicadZoneEmsalArea);
     v.archicadLinked = j.contains ("archicadStoryIndex") || j.contains ("archicadFloorId");
     ReadOptional(j,"archicadStoryIndex",v.archicadStoryIndex); ReadOptional(j,"archicadFloorId",v.archicadFloorId); ReadOptional(j,"archicadLevel",v.archicadLevel);
 }
