@@ -77,6 +77,7 @@ int main ()
     assert (RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=EMSAL_DISI").areaType == RuhsatHesap::ZoneAreaType::EmsalOutside);
     assert (RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=SIĞINAK").areaType == RuhsatHesap::ZoneAreaType::Shelter);
     assert (RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=SAÇAK").areaType == RuhsatHesap::ZoneAreaType::Eave);
+    assert (RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=ASANSOR").areaType == RuhsatHesap::ZoneAreaType::Elevator);
     assert (!RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=MERDIVEN").toThirtyPercentTable);
     assert (RuhsatHesap::ParseZoneName ("RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN").toThirtyPercentTable);
     assert (RuhsatHesap::ParseZoneName ("rh|b:a|h:emsal|t:sacak").toThirtyPercentTable);
@@ -110,10 +111,11 @@ int main ()
         {"RH|BLOK=A|TIP=EMSAL_DISI", "", "Zemin Kat", 0, 30.0, "extended-5"},
         {"RH|BLOK=A|TIP=SIGINAK", "", "Zemin Kat", 0, 40.0, "extended-6"},
         {"RH|BLOK=A|TIP=SACAK", "", "Zemin Kat", 0, 15.0, "extended-7"},
-        {"RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN", "", "Zemin Kat", 0, 7.0, "extended-8"}
+        {"RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN", "", "Zemin Kat", 0, 7.0, "extended-8"},
+        {"RH|BLOK=A|HESAP=EMSAL|TIP=ASANSOR", "", "Zemin Kat", 0, 9.0, "extended-9"}
     };
     const auto extendedSync = RuhsatHesap::SyncZonesToProject (extendedZoneProject, extendedZones);
-    assert (extendedSync.recognizedZones == 8);
+    assert (extendedSync.recognizedZones == 9);
     assert (extendedSync.invalidZones == 0);
     assert (extendedSync.updatedFloorAreas == 1);
     const auto& importedFloor = extendedZoneProject.blocks.front ().floors.front ();
@@ -124,6 +126,8 @@ int main ()
     // HESAP=EMSAL|TIP=MERDIVEN goes to the %30 tablosu, not Yapi Insaat Alani;
     // it must not add to constructionAreas["merdiven"].
     assert (std::abs (importedFloor.thirtyPercentAreas.at ("merdiven") - 7.5) < 0.001);
+    assert (std::abs (importedFloor.thirtyPercentAreas.at ("asansor") - 9.0) < 0.001);
+    assert (importedFloor.constructionAreas.find ("asansor") == importedFloor.constructionAreas.end ());
     assert (std::abs (importedFloor.emsalArea - 202.0) < 0.001);
     assert (std::abs (importedFloor.emsalOutsideArea - 33.0) < 0.001);
     assert (std::abs (extendedZoneProject.auxiliaryData["commonArea"].get<double> () - 104.0) < 0.001);
@@ -146,6 +150,7 @@ int main ()
     assert (clearedExtendedFloor.constructionAreas.find ("siginak") == clearedExtendedFloor.constructionAreas.end ());
     assert (clearedExtendedFloor.constructionAreas.find ("sacak") == clearedExtendedFloor.constructionAreas.end ());
     assert (std::abs (clearedExtendedFloor.thirtyPercentAreas.at ("merdiven") - 0.5) < 0.001);
+    assert (clearedExtendedFloor.thirtyPercentAreas.find ("asansor") == clearedExtendedFloor.thirtyPercentAreas.end ());
     assert (std::abs (clearedExtendedFloor.emsalArea - 2.0) < 0.001);
     assert (std::abs (clearedExtendedFloor.emsalOutsideArea - 3.0) < 0.001);
     assert (std::abs (extendedZoneProject.auxiliaryData["commonArea"].get<double> () - 4.0) < 0.001);

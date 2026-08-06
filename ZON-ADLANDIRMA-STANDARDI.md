@@ -2,7 +2,7 @@
 
 **Uygulama:** Ruhsat Hesap  
 **Uyumluluk:** Archicad 29 / Ruhsat Hesap 0.5.9 zon okuyucu kurallari  
-**Kapsam:** Zonlardan blok, bagimsiz bolum, kat, net/brut/eklenti/balkon, ortak alan, yapi insaat alanlari (merdiven, hol, siginak, sacak), Emsal Hesabi %30 tablosuna `HESAP=EMSAL` ile yonlendirme, emsal alanlari, siginak alani, oda sayisi ve nitelik aktarimi
+**Kapsam:** Zonlardan blok, bagimsiz bolum, kat, net/brut/eklenti/balkon, ortak alan, yapi insaat alanlari (merdiven, hol, siginak, sacak, asansor), Emsal Hesabi %30 tablosuna `HESAP=EMSAL` ile yonlendirme, emsal alanlari, siginak alani, oda sayisi ve nitelik aktarimi
 
 > Bu dokuman zon adlarinin Ruhsat Hesap tarafindan nasil okunacagini aciklar. Zon kodu olmayan normal Archicad zonlari degistirilmez ve hesaba alinmaz.
 
@@ -91,6 +91,7 @@ RH|B=A|BB=01|T=NET|O=3|M=SALON|N=MESKEN
 | `EMSAL_DISI` | `EMSALDISI` | Emsal Hesabi tablosunda kat bazli emsal disi alan |
 | `SIGINAK` | `SIĞINAK` | Yapi Insaat Alani siginak satiri ve projede ayrilan net siginak alani |
 | `SACAK` | `SAÇAK` | Yapi Insaat Alani (varsayilan) veya `HESAP=EMSAL` ile Emsal Hesabi %30 tablosunda kat bazli sacak alani |
+| `ASANSOR` | `ASANSÖR` | Yapi Insaat Alani (varsayilan) veya `HESAP=EMSAL` ile Emsal Hesabi %30 tablosunda kat bazli asansor alani |
 
 ### Alanin Archicad'den alinma bicimi
 
@@ -285,6 +286,7 @@ Ruhsat Hesap 0.5.9 ile asagidaki alan kodlari da otomatik aktarilir. Bu zonlarda
 | `TIP=EMSAL_DISI` | Emsal Hesabi > Emsal disi | Zonun blogu ve ana kati esas alinir |
 | `TIP=SIGINAK` | Yapi Insaat Alani > SIGINAK ve Siginak Hesabi > Projede ayrilan net siginak | Zonun blogu ve ana kati esas alinir; tum siginak zonlari ayrilan net alanda toplanir |
 | `TIP=SACAK` | Yapi Insaat Alani > SACAK | Zonun blogu ve ana kati esas alinir; `HESAP=EMSAL` ile hedef degistirilebilir (asagida) |
+| `TIP=ASANSOR` | Yapi Insaat Alani > ASANSOR | Zonun blogu ve ana kati esas alinir; `HESAP=EMSAL` ile hedef degistirilebilir (asagida) |
 
 Ornekler:
 
@@ -296,6 +298,7 @@ RH|BLOK=A|TIP=EMSAL|MAHAL=EMSAL_ALANI
 RH|BLOK=A|TIP=EMSAL_DISI|MAHAL=EMSAL_DISI_ALAN
 RH|BLOK=A|TIP=SIGINAK|MAHAL=SIGINAK
 RH|BLOK=A|TIP=SACAK|MAHAL=SACAK
+RH|BLOK=A|TIP=ASANSOR|MAHAL=ASANSOR
 ```
 
 Onemli: `TIP=HOL`, Yapi Insaat Alani tablosundaki toplam hol alanidir. Emsal hesabina konu `%30 kat holu` ile otomatik olarak esitlenmez. Bu iki veri birbirinden bagimsiz kalir.
@@ -304,11 +307,13 @@ Zon aktarimi tekrar calistirildiginda onceki otomatik katkilar yenileriyle degis
 
 ### HESAP anahtari: Emsal Hesabi %30 tablosuna otomatik aktarim
 
-`TIP=MERDIVEN`, `TIP=HOL` ve `TIP=SACAK` varsayilan olarak yalnizca **Yapi Insaat Alani** tablosunu doldurur; Emsal Hesabi sekmesindeki **%30 istisna tablosu** (merdiven, sacak, kat_holu vb. sutunlar) elle girilmeye devam eder. Bu ayni alanin **Emsal Hesabi %30 tablosuna** otomatik yazilmasini isteyen projeler icin `HESAP=EMSAL` anahtari eklenir:
+`TIP=MERDIVEN`, `TIP=HOL`, `TIP=SACAK` ve `TIP=ASANSOR` varsayilan olarak yalnizca **Yapi Insaat Alani** tablosunu doldurur; Emsal Hesabi sekmesindeki **%30 istisna tablosu** (merdiven, sacak, kat_holu vb. sutunlar) elle girilmeye devam eder. Bu ayni alanin **Emsal Hesabi %30 tablosuna** otomatik yazilmasini isteyen projeler icin `HESAP=EMSAL` anahtari eklenir:
 
 ```text
 RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN
+RH|BLOK=A|HESAP=EMSAL|TIP=HOL
 RH|BLOK=A|HESAP=EMSAL|TIP=SACAK
+RH|BLOK=A|HESAP=EMSAL|TIP=ASANSOR
 ```
 
 | Anahtar | Kisa ad | Kabul edilen deger | Davranis |
@@ -318,7 +323,7 @@ RH|BLOK=A|HESAP=EMSAL|TIP=SACAK
 
 Kurallar:
 
-- `HESAP` yalnizca `TIP=MERDIVEN`, `TIP=HOL` ve `TIP=SACAK` icin gecerlidir. `TIP=EMSAL` ve `TIP=EMSAL_DISI` zaten dogrudan Emsal Hesabi tablosuna yazar ve `HESAP`'tan etkilenmez. `TIP=SIGINAK` her zaman Yapi Insaat Alani ve Siginak Hesabi'na yazar; `HESAP=EMSAL` ile yonlendirilemez.
+- `HESAP` yalnizca `TIP=MERDIVEN`, `TIP=HOL`, `TIP=SACAK` ve `TIP=ASANSOR` icin gecerlidir. `TIP=EMSAL` ve `TIP=EMSAL_DISI` zaten dogrudan Emsal Hesabi tablosuna yazar ve `HESAP`'tan etkilenmez. `TIP=SIGINAK` her zaman Yapi Insaat Alani ve Siginak Hesabi'na yazar; `HESAP=EMSAL` ile yonlendirilemez.
 - Ayni fiziksel alani hem Yapi Insaat Alani'na hem %30 tablosuna yazdirmak icin **iki ayri zon** olusturun: biri `HESAP` olmadan (Yapi Insaat Alani), digeri `HESAP=EMSAL` ile (%30 tablosu). Tek bir zon her iki tabloyu birden doldurmaz.
 - `HESAP=EMSAL|TIP=HOL`, %30 tablosunda **ayri bir `hol` sutunu** olusturur; mevcut `kat_holu` sutunuyla otomatik birlesmez. Bolum 15'teki bagimsizlik kurali boylece korunur.
 - Hedef sutun panelde henuz yoksa (ornegin ilk kez `SACAK` kullaniliyorsa) aktarim sirasinda otomatik olarak eklenir; elle "Alan Basligi Ekle" yapmaya gerek yoktur.
@@ -333,7 +338,7 @@ Proje ekibinde su kurallari sabitleyin:
 - Uzun anahtar bicimini kullanin.
 - Bloklari `A`, `B`, `C` olarak adlandirin.
 - BB numaralarinda iki haneli standardi koruyun: `01`, `02`, `03`.
-- TIP degerlerini yalnizca desteklenen kodlardan secin: `NET`, `BRUT`, `BALKON`, `EKLENTI_NET`, `EKLENTI_BRUT`, `ORTAK`, `MERDIVEN`, `HOL`, `EMSAL`, `EMSAL_DISI`, `SIGINAK`, `SACAK`.
+- TIP degerlerini yalnizca desteklenen kodlardan secin: `NET`, `BRUT`, `BALKON`, `EKLENTI_NET`, `EKLENTI_BRUT`, `ORTAK`, `MERDIVEN`, `HOL`, `EMSAL`, `EMSAL_DISI`, `SIGINAK`, `SACAK`, `ASANSOR`.
 - ODA degerini tam sayi girin.
 - Mahal adlarini ASCII buyuk harfle yazin: `YATAK_ODASI_1`, `SALON`, `MUTFAK`.
 - Nitelik sozlugunu proje basinda belirleyin: `MESKEN`, `OFIS`, `DUKKAN`, `DEPO`.

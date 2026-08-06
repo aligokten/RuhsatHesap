@@ -57,6 +57,7 @@ ZoneAreaType ParseAreaType (const std::string& value)
     if (normalized == "EMSAL_DISI" || normalized == "EMSALDISI") return ZoneAreaType::EmsalOutside;
     if (normalized == "SIGINAK") return ZoneAreaType::Shelter;
     if (normalized == "SACAK") return ZoneAreaType::Eave;
+    if (normalized == "ASANSOR") return ZoneAreaType::Elevator;
     return ZoneAreaType::Unknown;
 }
 
@@ -68,7 +69,8 @@ bool ParseHesapTarget (const std::string& value)
 // Key used both as the FloorRecord::constructionAreas / thirtyPercentAreas map
 // key and as the auto-registered column header in auxiliaryData. Only valid
 // for the floor/common-level area types handled by the aggregation switch
-// below (Stair, Hall, Shelter, Eave); returns an empty string otherwise.
+// below (Stair, Hall, Shelter, Eave, Elevator); returns an empty string
+// otherwise.
 std::string FloorAreaKey (ZoneAreaType areaType)
 {
     switch (areaType) {
@@ -76,6 +78,7 @@ std::string FloorAreaKey (ZoneAreaType areaType)
         case ZoneAreaType::Hall: return "hol";
         case ZoneAreaType::Shelter: return "siginak";
         case ZoneAreaType::Eave: return "sacak";
+        case ZoneAreaType::Elevator: return "asansor";
         default: return "";
     }
 }
@@ -322,6 +325,7 @@ ZoneSyncResult SyncZonesToProject (ProjectData& project, const std::vector<ZoneO
                 case ZoneAreaType::Stair:
                 case ZoneAreaType::Hall:
                 case ZoneAreaType::Eave:
+                case ZoneAreaType::Elevator:
                     // HESAP=EMSAL routes the same measured area into the Emsal
                     // Hesabi %30 istisna tablosu instead of Yapi Insaat Alani.
                     // Sığınak is intentionally excluded: it always feeds Yapi
@@ -371,6 +375,7 @@ ZoneSyncResult SyncZonesToProject (ProjectData& project, const std::vector<ZoneO
             case ZoneAreaType::EmsalOutside:
             case ZoneAreaType::Shelter:
             case ZoneAreaType::Eave:
+            case ZoneAreaType::Elevator:
             case ZoneAreaType::Unknown: break;
         }
     }
