@@ -27,4 +27,15 @@ const ordered = ["10", "7", "9", "8", "A10", "A2"]
 if (ordered.join(",") !== "7,8,9,10,A2,A10")
     throw new Error(`Unexpected independent-unit order: ${ordered.join(",")}`);
 
+const tipCodeSource = scriptMatch[1].match(/function zoneTipCode[\s\S]*?(?=\nfunction sumMap)/);
+if (!tipCodeSource) throw new Error("Dynamic construction TIP helper is missing.");
+eval(tipCodeSource[0]);
+if (zoneTipCode("Makina Dairesi + Denge Tankı") !== "MAKINA_DAIRESI_DENGE_TANKI")
+    throw new Error("Dynamic construction TIP normalization failed.");
+
+// Emsal Hesabı %30 columns must show the HESAP=EMSAL|TIP=... code that
+// routes a zone into that column, mirroring the Yapı İnşaat Alanı hint above.
+if (!scriptMatch[1].includes("HESAP=EMSAL|TIP="))
+    throw new Error("Emsal Hesabı %30 dynamic TIP hint is missing.");
+
 console.log("Ruhsat Hesap panel HTML tests passed.");

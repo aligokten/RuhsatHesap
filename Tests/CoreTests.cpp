@@ -81,27 +81,39 @@ int main ()
     assert (!RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=MERDIVEN").toThirtyPercentTable);
     assert (RuhsatHesap::ParseZoneName ("RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN").toThirtyPercentTable);
     assert (RuhsatHesap::ParseZoneName ("rh|b:a|h:emsal|t:sacak").toThirtyPercentTable);
-    // Any TIP value outside the reserved keyword list becomes a user-defined
-    // Yapi Insaat Alani / Emsal Hesabi %30 kalemi, keyed by its normalized text.
-    const auto customArea = RuhsatHesap::ParseZoneName ("RH|BLOK=A|HESAP=EMSAL|TIP=Havuz Kenari");
-    assert (customArea.valid);
-    assert (customArea.areaType == RuhsatHesap::ZoneAreaType::CustomFloorArea);
-    assert (customArea.floorAreaKey == "havuz_kenari");
-    assert (customArea.toThirtyPercentTable);
-    const auto customAreaNoHesap = RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=Giris_Terasi");
-    assert (customAreaNoHesap.areaType == RuhsatHesap::ZoneAreaType::CustomFloorArea);
-    assert (customAreaNoHesap.floorAreaKey == "giris_terasi");
-    assert (!customAreaNoHesap.toThirtyPercentTable);
-    // A whitespace-only TIP value must not become a valid empty-key custom area.
-    assert (RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=  ").areaType == RuhsatHesap::ZoneAreaType::Unknown);
+    const auto parsedDynamicType = RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=YANGIN_MERDİVENİ");
+    assert (!parsedDynamicType.valid);
+    assert (parsedDynamicType.areaTypeName == "YANGIN_MERDİVENİ");
     // NITELIK keeps its own meaning (bagimsiz bolum niteligi) and never sets areaType.
     const auto nitelikOnly = RuhsatHesap::ParseZoneName ("RH|BLOK=A|NITELIK=MERDIVEN");
     assert (!nitelikOnly.valid);
     assert (nitelikOnly.areaType == RuhsatHesap::ZoneAreaType::Unknown);
     assert (nitelikOnly.quality == "MERDIVEN");
+    // A whitespace-only TIP value must not become a valid empty-key custom area.
+    assert (RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=  ").areaType == RuhsatHesap::ZoneAreaType::Unknown);
     assert (!RuhsatHesap::ParseZoneName ("SALON").ruhsatZone);
 
+    RuhsatHesap::ProjectData defaultConstructionProject;
+    const auto defaultConstructionSync = RuhsatHesap::SyncZonesToProject (defaultConstructionProject, {
+        {"RH|BLOK=A|TIP=ASANSÖR", "", "Zemin Kat", 0, 4.25, "default-construction"},
+        {"RH|BLOK=A|HESAP=EMSAL|TIP=SACAK", "", "Zemin Kat", 0, 6.5, "default-thirty-percent"},
+        // No auxiliaryData.constructionKeys/thirtyPercentKeys exist yet on a
+        // brand-new project; this must still match "sacak" among the
+        // not-yet-saved panel defaults rather than creating a duplicate.
+        {"RH|BLOK=A|TIP=Havuz Kenari", "", "Zemin Kat", 0, 3.0, "default-custom-created"}
+    });
+    assert (defaultConstructionSync.recognizedZones == 3);
+    const auto& defaultConstructionFloor = defaultConstructionProject.blocks.front ().floors.front ();
+    assert (std::abs (defaultConstructionFloor.constructionAreas.at ("asansor") - 4.25) < 0.001);
+    assert (std::abs (defaultConstructionFloor.thirtyPercentAreas.at ("sacak") - 6.5) < 0.001);
+    assert (defaultConstructionFloor.constructionAreas.find ("sacak") == defaultConstructionFloor.constructionAreas.end ());
+    assert (std::abs (defaultConstructionFloor.constructionAreas.at ("havuz_kenari") - 3.0) < 0.001);
+    const auto defaultConstructionKeys = defaultConstructionProject.auxiliaryData["constructionKeys"].get<std::vector<std::string>> ();
+    assert (std::find (defaultConstructionKeys.begin (), defaultConstructionKeys.end (), "havuz_kenari") != defaultConstructionKeys.end ());
+
     RuhsatHesap::ProjectData extendedZoneProject;
+    extendedZoneProject.auxiliaryData["constructionKeys"] = {"merdiven", "hol", "siginak", "sacak", "yangin_merdiveni", "makina_dairesi_+_denge_tankı"};
+    extendedZoneProject.auxiliaryData["thirtyPercentKeys"] = {"merdiven", "sacak"};
     extendedZoneProject.auxiliaryData["commonArea"] = 4.0;
     extendedZoneProject.auxiliaryData["shelter"]["providedArea"] = 5.0;
     RuhsatHesap::BlockRecord extendedBlock;
@@ -111,6 +123,7 @@ int main ()
     extendedFloor.archicadLinked = true;
     extendedFloor.archicadStoryIndex = 0;
     extendedFloor.constructionAreas["merdiven"] = 1.0;
+    extendedFloor.constructionAreas["yangin_merdiveni"] = 2.0;
     extendedFloor.thirtyPercentAreas["merdiven"] = 0.5;
     extendedFloor.emsalArea = 2.0;
     extendedFloor.emsalOutsideArea = 3.0;
@@ -123,11 +136,16 @@ int main ()
         {"RH|BLOK=A|TIP=EMSAL", "", "Zemin Kat", 0, 200.0, "extended-4"},
         {"RH|BLOK=A|TIP=EMSAL_DISI", "", "Zemin Kat", 0, 30.0, "extended-5"},
         {"RH|BLOK=A|TIP=SIGINAK", "", "Zemin Kat", 0, 40.0, "extended-6"},
-        {"RH|BLOK=A|TIP=SACAK", "", "Zemin Kat", 0, 15.0, "extended-7"},
-        {"RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN", "", "Zemin Kat", 0, 7.0, "extended-8"},
-        {"RH|BLOK=A|HESAP=EMSAL|TIP=ASANSOR", "", "Zemin Kat", 0, 9.0, "extended-9"},
-        {"RH|BLOK=A|HESAP=EMSAL|TIP=Havuz Kenari", "", "Zemin Kat", 0, 3.0, "extended-10"},
-        {"RH|BLOK=A|TIP=Ozel_Alan", "", "Zemin Kat", 0, 6.0, "extended-11"}
+        {"RH|BLOK=A|TIP=YANGIN-MERDİVENİ", "", "Zemin Kat", 0, 12.0, "extended-7"},
+        {"RH|BLOK=A|TIP=MAKINA DAIRESI + DENGE TANKI", "", "Zemin Kat", 0, 8.0, "extended-8"},
+        // TANIMSIZ_ALAN matches nothing in constructionKeys -- with no
+        // auto-create this would be invalid; the merged behaviour instead
+        // creates a brand-new "tanimsiz_alan" column.
+        {"RH|BLOK=A|TIP=TANIMSIZ_ALAN", "", "Zemin Kat", 0, 9.0, "extended-9"},
+        // HESAP=EMSAL with an explicit (but non-matching) thirtyPercentKeys
+        // array present: must still create a new %30 column, not silently drop it.
+        {"RH|BLOK=A|HESAP=EMSAL|TIP=Havuz Kenari", "", "Zemin Kat", 0, 5.0, "extended-10"},
+        {"RH|BLOK=A|HESAP=EMSAL|TIP=SACAK", "", "Zemin Kat", 0, 7.0, "extended-11"}
     };
     const auto extendedSync = RuhsatHesap::SyncZonesToProject (extendedZoneProject, extendedZones);
     assert (extendedSync.recognizedZones == 11);
@@ -137,47 +155,39 @@ int main ()
     assert (std::abs (importedFloor.constructionAreas.at ("merdiven") - 11.0) < 0.001);
     assert (std::abs (importedFloor.constructionAreas.at ("hol") - 20.0) < 0.001);
     assert (std::abs (importedFloor.constructionAreas.at ("siginak") - 40.0) < 0.001);
-    assert (std::abs (importedFloor.constructionAreas.at ("sacak") - 15.0) < 0.001);
-    // HESAP=EMSAL|TIP=MERDIVEN goes to the %30 tablosu, not Yapi Insaat Alani;
-    // it must not add to constructionAreas["merdiven"].
-    assert (std::abs (importedFloor.thirtyPercentAreas.at ("merdiven") - 7.5) < 0.001);
-    assert (std::abs (importedFloor.thirtyPercentAreas.at ("asansor") - 9.0) < 0.001);
-    assert (importedFloor.constructionAreas.find ("asansor") == importedFloor.constructionAreas.end ());
-    // Free-form TIP values (not in the reserved keyword list) create their own
-    // named kalem, keyed by the normalized text -- with or without HESAP=EMSAL.
-    assert (std::abs (importedFloor.thirtyPercentAreas.at ("havuz_kenari") - 3.0) < 0.001);
-    assert (std::abs (importedFloor.constructionAreas.at ("ozel_alan") - 6.0) < 0.001);
+    assert (std::abs (importedFloor.constructionAreas.at ("yangin_merdiveni") - 14.0) < 0.001);
+    assert (std::abs (importedFloor.constructionAreas.at ("makina_dairesi_+_denge_tankı") - 8.0) < 0.001);
+    assert (std::abs (importedFloor.constructionAreas.at ("tanimsiz_alan") - 9.0) < 0.001);
+    // HESAP=EMSAL goes to the %30 tablosu, not Yapi Insaat Alani.
+    assert (std::abs (importedFloor.thirtyPercentAreas.at ("havuz_kenari") - 5.0) < 0.001);
+    assert (std::abs (importedFloor.thirtyPercentAreas.at ("sacak") - 7.0) < 0.001);
+    assert (importedFloor.constructionAreas.find ("havuz_kenari") == importedFloor.constructionAreas.end ());
     assert (std::abs (importedFloor.emsalArea - 202.0) < 0.001);
     assert (std::abs (importedFloor.emsalOutsideArea - 33.0) < 0.001);
     assert (std::abs (extendedZoneProject.auxiliaryData["commonArea"].get<double> () - 104.0) < 0.001);
     assert (std::abs (extendedZoneProject.auxiliaryData["shelter"]["providedArea"].get<double> () - 45.0) < 0.001);
-    // New auto-imported keys register themselves as real columns instead of
-    // hiding inside an unlisted map key -- both the fixed defaults and the
-    // brand-new custom keys ("havuz_kenari", "ozel_alan").
-    const auto constructionKeys = extendedZoneProject.auxiliaryData["constructionKeys"].get<std::vector<std::string>> ();
-    assert (constructionKeys.size () == 11);
-    assert (std::find (constructionKeys.begin (), constructionKeys.end (), "ozel_alan") != constructionKeys.end ());
-    const auto thirtyPercentKeys = extendedZoneProject.auxiliaryData["thirtyPercentKeys"].get<std::vector<std::string>> ();
-    assert (std::find (thirtyPercentKeys.begin (), thirtyPercentKeys.end (), "merdiven") != thirtyPercentKeys.end ());
-    assert (std::find (thirtyPercentKeys.begin (), thirtyPercentKeys.end (), "havuz_kenari") != thirtyPercentKeys.end ());
+    const auto extendedConstructionKeys = extendedZoneProject.auxiliaryData["constructionKeys"].get<std::vector<std::string>> ();
+    assert (std::find (extendedConstructionKeys.begin (), extendedConstructionKeys.end (), "tanimsiz_alan") != extendedConstructionKeys.end ());
+    const auto extendedThirtyPercentKeys = extendedZoneProject.auxiliaryData["thirtyPercentKeys"].get<std::vector<std::string>> ();
+    assert (std::find (extendedThirtyPercentKeys.begin (), extendedThirtyPercentKeys.end (), "havuz_kenari") != extendedThirtyPercentKeys.end ());
 
     RuhsatHesap::SyncZonesToProject (extendedZoneProject, extendedZones);
     assert (std::abs (extendedZoneProject.blocks.front ().floors.front ().constructionAreas.at ("merdiven") - 11.0) < 0.001);
-    assert (std::abs (extendedZoneProject.blocks.front ().floors.front ().thirtyPercentAreas.at ("merdiven") - 7.5) < 0.001);
-    assert (std::abs (extendedZoneProject.blocks.front ().floors.front ().thirtyPercentAreas.at ("havuz_kenari") - 3.0) < 0.001);
-    assert (std::abs (extendedZoneProject.blocks.front ().floors.front ().constructionAreas.at ("ozel_alan") - 6.0) < 0.001);
+    assert (std::abs (extendedZoneProject.blocks.front ().floors.front ().constructionAreas.at ("yangin_merdiveni") - 14.0) < 0.001);
+    assert (std::abs (extendedZoneProject.blocks.front ().floors.front ().thirtyPercentAreas.at ("havuz_kenari") - 5.0) < 0.001);
     assert (std::abs (extendedZoneProject.blocks.front ().floors.front ().emsalArea - 202.0) < 0.001);
     assert (std::abs (extendedZoneProject.auxiliaryData["commonArea"].get<double> () - 104.0) < 0.001);
     RuhsatHesap::SyncZonesToProject (extendedZoneProject, {});
     const auto& clearedExtendedFloor = extendedZoneProject.blocks.front ().floors.front ();
     assert (std::abs (clearedExtendedFloor.constructionAreas.at ("merdiven") - 1.0) < 0.001);
+    assert (std::abs (clearedExtendedFloor.constructionAreas.at ("yangin_merdiveni") - 2.0) < 0.001);
+    assert (clearedExtendedFloor.constructionAreas.find ("makina_dairesi_+_denge_tankı") == clearedExtendedFloor.constructionAreas.end ());
     assert (clearedExtendedFloor.constructionAreas.find ("hol") == clearedExtendedFloor.constructionAreas.end ());
     assert (clearedExtendedFloor.constructionAreas.find ("siginak") == clearedExtendedFloor.constructionAreas.end ());
-    assert (clearedExtendedFloor.constructionAreas.find ("sacak") == clearedExtendedFloor.constructionAreas.end ());
-    assert (clearedExtendedFloor.constructionAreas.find ("ozel_alan") == clearedExtendedFloor.constructionAreas.end ());
+    assert (clearedExtendedFloor.constructionAreas.find ("tanimsiz_alan") == clearedExtendedFloor.constructionAreas.end ());
     assert (std::abs (clearedExtendedFloor.thirtyPercentAreas.at ("merdiven") - 0.5) < 0.001);
-    assert (clearedExtendedFloor.thirtyPercentAreas.find ("asansor") == clearedExtendedFloor.thirtyPercentAreas.end ());
     assert (clearedExtendedFloor.thirtyPercentAreas.find ("havuz_kenari") == clearedExtendedFloor.thirtyPercentAreas.end ());
+    assert (clearedExtendedFloor.thirtyPercentAreas.find ("sacak") == clearedExtendedFloor.thirtyPercentAreas.end ());
     assert (std::abs (clearedExtendedFloor.emsalArea - 2.0) < 0.001);
     assert (std::abs (clearedExtendedFloor.emsalOutsideArea - 3.0) < 0.001);
     assert (std::abs (extendedZoneProject.auxiliaryData["commonArea"].get<double> () - 4.0) < 0.001);

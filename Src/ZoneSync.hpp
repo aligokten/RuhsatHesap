@@ -22,11 +22,11 @@ enum class ZoneAreaType {
     Shelter,
     Eave,
     Elevator,
-    // Any TIP value that is not one of the reserved keywords above (NET, BRUT,
-    // ORTAK, MERDIVEN, HOL, EMSAL, EMSAL_DISI, SIGINAK, SACAK, ASANSOR, ...).
-    // Lets a project define its own named Yapi Insaat Alani / Emsal Hesabi %30
-    // kalemi straight from a zone, matching whatever column the "Alan Basligi
-    // Ekle" button would create. See floorAreaKey below.
+    // Any TIP value that is not one of the reserved keywords above. Resolved
+    // during project sync (not by ParseZoneName alone, which lacks project
+    // context): first against an existing Yapi Insaat Alani / Emsal Hesabi
+    // %30 column ("Alan Basligi Ekle"/"Alan Satiri Ekle"), falling back to
+    // creating a new column from the TIP text if none matches.
     CustomFloorArea,
     Unknown
 };
@@ -38,6 +38,10 @@ struct ParsedZoneName {
     std::string unitNumber;
     std::string roomName;
     std::string quality;
+    // Raw TIP text, always captured regardless of whether it resolves to a
+    // reserved ZoneAreaType. Used to resolve ZoneAreaType::CustomFloorArea
+    // during project sync.
+    std::string areaTypeName;
     ZoneAreaType areaType = ZoneAreaType::Unknown;
     int roomCount = 0;
     // Stair/Hall/Eave/Elevator/CustomFloorArea only (Shelter always goes to
@@ -46,11 +50,6 @@ struct ParsedZoneName {
     // routes the same area into the Emsal Hesabi %30 istisna tablosu
     // (FloorRecord::thirtyPercentAreas) instead. Ignored for other area types.
     bool toThirtyPercentTable = false;
-    // Only set when areaType == CustomFloorArea: the TIP value normalized into
-    // a lowercase, underscore-separated map/column key (matching how "Alan
-    // Basligi Ekle" derives a key from a typed label). Empty otherwise -- use
-    // the fixed key for Stair/Hall/Eave/Elevator instead.
-    std::string floorAreaKey;
     std::string error;
 };
 
@@ -86,10 +85,12 @@ struct ZoneSyncResult {
 // instead, e.g. RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN (SIGINAK is excluded from
 // HESAP routing -- it always feeds Yapi Insaat Alani + Siginak Hesabi).
 //
-// Any other TIP value is accepted too and creates its own named column, e.g.
-// RH|BLOK=A|HESAP=EMSAL|TIP=HAVUZ_KENARI feeds a new "havuz kenari" column in
-// the Emsal Hesabi %30 tablosu; without HESAP it goes to Yapi Insaat Alani
-// instead. Use ASCII/underscore spelling for predictable column keys.
+// Any other TIP value is resolved during SyncZonesToProject: it first tries
+// to match an existing Yapi Insaat Alani / Emsal Hesabi %30 column (created
+// via "Alan Basligi Ekle"/"Alan Satiri Ekle", matched loosely -- case,
+// whitespace, punctuation and Turkish-character spelling differences are
+// ignored); if nothing matches it creates a new column from the TIP text.
+// Use ASCII/underscore spelling for predictable column keys.
 //
 // NITELIK keeps its own meaning (bagimsiz bolum niteligi) and is never read
 // as an area-type discriminator.

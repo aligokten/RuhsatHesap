@@ -1,8 +1,8 @@
 # Ruhsat Hesap Archicad Zon Kodlari Kullanim Kilavuzu
 
 **Uygulama:** Ruhsat Hesap  
-**Uyumluluk:** Archicad 29 / Ruhsat Hesap 0.5.9 zon okuyucu kurallari  
-**Kapsam:** Zonlardan blok, bagimsiz bolum, kat, net/brut/eklenti/balkon, ortak alan, yapi insaat alanlari (merdiven, hol, siginak, sacak, asansor ve serbest ozel kalemler), Emsal Hesabi %30 tablosuna `HESAP=EMSAL` ile yonlendirme, emsal alanlari, siginak alani, oda sayisi ve nitelik aktarimi
+**Uyumluluk:** Archicad 29 / Ruhsat Hesap 0.6.0 zon okuyucu kurallari  
+**Kapsam:** Zonlardan blok, bagimsiz bolum, kat, net/brut/eklenti/balkon, ortak alan, yapi insaat alanlari, emsal alanlari, siginak alani, oda sayisi ve nitelik aktarimi
 
 > Bu dokuman zon adlarinin Ruhsat Hesap tarafindan nasil okunacagini aciklar. Zon kodu olmayan normal Archicad zonlari degistirilmez ve hesaba alinmaz.
 
@@ -60,6 +60,7 @@ RH | BLOK=A | BB=01 | TIP=NET | ODA=3 | MAHAL=SALON | NITELIK=MESKEN
 | `ODA` | `O` | `ODA=3` | Oda sayisi | Negatif olmayan tam sayi olmalidir |
 | `MAHAL` | `M` | `MAHAL=SALON` | - | Okunur ancak mevcut surumde tabloya kaydedilmez |
 | `NITELIK` | `N` | `NITELIK=MESKEN` | Nitelik | Kat irtifaki ve bagimsiz bolum verisinde kullanilir |
+| `HESAP` | `H` | `HESAP=EMSAL` | - | `MERDIVEN`/`HOL`/`SACAK`/`ASANSOR`/dinamik TIP alanlarini Yapi Insaat Alani yerine Emsal Hesabi %30 istisna tablosuna yonlendirir |
 
 ### Uzun ve kisa yazim
 
@@ -90,8 +91,22 @@ RH|B=A|BB=01|T=NET|O=3|M=SALON|N=MESKEN
 | `EMSAL` | - | Emsal Hesabi tablosunda kat bazli emsal alani |
 | `EMSAL_DISI` | `EMSALDISI` | Emsal Hesabi tablosunda kat bazli emsal disi alan |
 | `SIGINAK` | `SIĞINAK` | Yapi Insaat Alani siginak satiri ve projede ayrilan net siginak alani |
-| `SACAK` | `SAÇAK` | Yapi Insaat Alani (varsayilan) veya `HESAP=EMSAL` ile Emsal Hesabi %30 tablosunda kat bazli sacak alani |
-| `ASANSOR` | `ASANSÖR` | Yapi Insaat Alani (varsayilan) veya `HESAP=EMSAL` ile Emsal Hesabi %30 tablosunda kat bazli asansor alani |
+| `SACAK` | - | Yapi Insaat Alani tablosunda kat bazli sacak alani (HESAP=EMSAL ile Emsal Hesabi %30 tablosuna da yazilabilir) |
+| `ASANSOR` | - | Yapi Insaat Alani tablosunda kat bazli asansor alani (HESAP=EMSAL ile Emsal Hesabi %30 tablosuna da yazilabilir) |
+| `<ALAN_SATIRI_ADI>` | Bosluk/tire/Turkce karakterli ayni ad | Yapi Insaat Alani (varsayilan) veya `HESAP=EMSAL` ile Emsal Hesabi %30 tablosundaki ayni adli satir; yoksa TIP metninden yeni satir olusturulur |
+
+### HESAP anahtari: Emsal Hesabi %30 tablosuna otomatik aktarim
+
+`MERDIVEN`, `HOL`, `ASANSOR`, `SACAK` ve dinamik (serbest metin) TIP kodlari varsayilan olarak Yapi Insaat Alani tablosuna yazilir. Bu alanlarin ayni zamanda Emsal Hesabi'ndaki **%30 istisna tablosuna** (merdiven, asansor, sacak, hol vb. emsal disi birakilabilen kalemler) yazilmasi icin `HESAP=EMSAL` (kisa ad `H=EMSAL`) eklenir:
+
+```text
+RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN
+RH|BLOK=A|HESAP=EMSAL|TIP=ASANSOR
+RH|BLOK=A|HESAP=EMSAL|TIP=SACAK
+RH|BLOK=A|HESAP=EMSAL|TIP=HOL
+```
+
+`SIGINAK` bu yonlendirmeden etkilenmez; her zaman Yapi Insaat Alani ve Siginak Hesabi'na yazilir. `HESAP` yazilmazsa alan varsayilan olarak Yapi Insaat Alani'na gider.
 
 ### Alanin Archicad'den alinma bicimi
 
@@ -262,7 +277,7 @@ A ve B bloklarinda ayni BB numarasi kullanilabilir; blok adi kayitlari birbirind
 |---|---|---|
 | Ad `RH` ile baslamiyor | Zon tamamen yok sayilir | Ilk parcayi `RH` yapin |
 | `BLOK` yok | Zon hesaba alinmaz | `BLOK=A` ekleyin |
-| `TIP` yok veya tanimsiz | Zon hesaba alinmaz | Desteklenen TIP degerlerinden birini kullanin |
+| `TIP` yok (bos) | Zon hesaba alinmaz | Sabit bir TIP degeri veya serbest metin bir alan adi yazin |
 | Bagimsiz bolum TIP kodunda `BB` yok, Zon Numarasi da bos | Zon hesaba alinmaz | `BB=01` yazin veya Zon Numarasini doldurun; ortak/kat alanlarinda BB gerekmez |
 | Zon alani 0 veya negatif | Zon hesaba alinmaz | Zon sinirini ve alan hesaplamasini duzeltin |
 | `ODA=3+1` gibi metin | Oda degeri guvenilir okunmaz | Yalnizca tam sayi kullanin |
@@ -275,18 +290,20 @@ Durum satirinda **taranan zon** sayisi ile **RH zonu aktarildi** sayisi farkli o
 
 ## 15. Ortak, yapi insaat, emsal ve siginak zonlari
 
-Ruhsat Hesap 0.5.9 ile asagidaki alan kodlari da otomatik aktarilir. Bu zonlarda `BB` zorunlu degildir; `BLOK` ve `TIP` yazilmali, `ORTAK` disindaki alanlar dogru ana kata yerlestirilmelidir. Kat bilgisi zon koduna yazilmaz; zonun Archicad'deki ana kati otomatik okunur (bkz. Bolum 7).
+Ruhsat Hesap 0.6.0 ile asagidaki alan kodlari da otomatik aktarilir. Bu zonlarda `BB` zorunlu degildir; `BLOK` ve `TIP` yazilmali, `ORTAK` disindaki alanlar dogru ana kata yerlestirilmelidir.
 
 | Kod | Panelde yazildigi yer | Davranis |
 |---|---|---|
 | `TIP=ORTAK` | Bagimsiz Bolumler > Toplam ortak alan | Tum bloklardaki ORTAK zonlari proje toplaminda toplanir ve genel brut dagitiminda kullanilir |
 | `TIP=MERDIVEN` | Yapi Insaat Alani > MERDIVEN | Zonun blogu ve ana kati esas alinir |
 | `TIP=HOL` | Yapi Insaat Alani > HOL | Toplam kat holudur; Emsal Hesabi altindaki `kat_holu` kaleminden bagimsizdir |
+| `TIP=SACAK` | Yapi Insaat Alani > SACAK (veya `HESAP=EMSAL` ile Emsal Hesabi %30 > sacak) | Zonun blogu ve ana kati esas alinir |
+| `TIP=ASANSOR` | Yapi Insaat Alani > ASANSOR (veya `HESAP=EMSAL` ile Emsal Hesabi %30 > asansor) | Zonun blogu ve ana kati esas alinir |
 | `TIP=EMSAL` | Emsal Hesabi > Emsal alan | Zonun blogu ve ana kati esas alinir |
 | `TIP=EMSAL_DISI` | Emsal Hesabi > Emsal disi | Zonun blogu ve ana kati esas alinir |
 | `TIP=SIGINAK` | Yapi Insaat Alani > SIGINAK ve Siginak Hesabi > Projede ayrilan net siginak | Zonun blogu ve ana kati esas alinir; tum siginak zonlari ayrilan net alanda toplanir |
-| `TIP=SACAK` | Yapi Insaat Alani > SACAK | Zonun blogu ve ana kati esas alinir; `HESAP=EMSAL` ile hedef degistirilebilir (asagida) |
-| `TIP=ASANSOR` | Yapi Insaat Alani > ASANSOR | Zonun blogu ve ana kati esas alinir; `HESAP=EMSAL` ile hedef degistirilebilir (asagida) |
+
+`MERDIVEN`, `HOL`, `SACAK` ve `ASANSOR` icin `HESAP=EMSAL` eklenirse ayni alan Yapi Insaat Alani yerine Emsal Hesabi %30 istisna tablosuna yazilir (bkz. Bolum 4, "HESAP anahtari"). `SIGINAK` bu yonlendirmeden etkilenmez.
 
 Ornekler:
 
@@ -294,57 +311,53 @@ Ornekler:
 RH|BLOK=A|TIP=ORTAK|MAHAL=ORTAK_ALAN
 RH|BLOK=A|TIP=MERDIVEN|MAHAL=MERDIVEN
 RH|BLOK=A|TIP=HOL|MAHAL=KAT_HOLU
+RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN|MAHAL=EMSAL_MERDIVEN
+RH|BLOK=A|TIP=SACAK|MAHAL=SACAK
+RH|BLOK=A|TIP=ASANSOR|MAHAL=ASANSOR
 RH|BLOK=A|TIP=EMSAL|MAHAL=EMSAL_ALANI
 RH|BLOK=A|TIP=EMSAL_DISI|MAHAL=EMSAL_DISI_ALAN
 RH|BLOK=A|TIP=SIGINAK|MAHAL=SIGINAK
-RH|BLOK=A|TIP=SACAK|MAHAL=SACAK
-RH|BLOK=A|TIP=ASANSOR|MAHAL=ASANSOR
 ```
 
 Onemli: `TIP=HOL`, Yapi Insaat Alani tablosundaki toplam hol alanidir. Emsal hesabina konu `%30 kat holu` ile otomatik olarak esitlenmez. Bu iki veri birbirinden bagimsiz kalir.
 
 Zon aktarimi tekrar calistirildiginda onceki otomatik katkilar yenileriyle degistirilir; ayni alan iki kez eklenmez. Panelde yapilan manuel ilaveler korunur. Bir RH zonu silinirse sonraki aktarimda yalnizca o zon kaynaginin onceki katkisi kaldirilir.
 
-### HESAP anahtari: Emsal Hesabi %30 tablosuna otomatik aktarim
+### Dinamik Yapi Insaat Alani / Emsal Hesabi %30 TIP kodlari
 
-`TIP=MERDIVEN`, `TIP=HOL`, `TIP=SACAK` ve `TIP=ASANSOR` varsayilan olarak yalnizca **Yapi Insaat Alani** tablosunu doldurur; Emsal Hesabi sekmesindeki **%30 istisna tablosu** (merdiven, sacak, kat_holu vb. sutunlar) elle girilmeye devam eder. Bu ayni alanin **Emsal Hesabi %30 tablosuna** otomatik yazilmasini isteyen projeler icin `HESAP=EMSAL` anahtari eklenir:
+Yapi Insaat Alani modulunde **Alan Satiri Ekle**, Emsal Hesabi'nin %30 istisna tablosunda ise **Alan Ekle** ile olusturulan her satir otomatik olarak bir zon koduna donusur. Panel, satir adinin altinda kullanilacak standart `TIP` kodunu gosterir (Emsal Hesabi'nda `HESAP=EMSAL|TIP=...` biciminde).
 
-```text
-RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN
-RH|BLOK=A|HESAP=EMSAL|TIP=HOL
-RH|BLOK=A|HESAP=EMSAL|TIP=SACAK
-RH|BLOK=A|HESAP=EMSAL|TIP=ASANSOR
-```
-
-| Anahtar | Kisa ad | Kabul edilen deger | Davranis |
-|---|---|---|---|
-| `HESAP` | `H` | `EMSAL` | `TIP` degerindeki alani Emsal Hesabi %30 tablosuna yazar |
-| `HESAP` yok veya `EMSAL` disi bir deger | - | - | Varsayilan davranis: alan Yapi Insaat Alani tablosuna yazilir |
-
-Kurallar:
-
-- `HESAP` yalnizca `TIP=MERDIVEN`, `TIP=HOL`, `TIP=SACAK`, `TIP=ASANSOR` ve asagidaki serbest (ozel) `TIP` degerleri icin gecerlidir. `TIP=EMSAL` ve `TIP=EMSAL_DISI` zaten dogrudan Emsal Hesabi tablosuna yazar ve `HESAP`'tan etkilenmez. `TIP=SIGINAK` her zaman Yapi Insaat Alani ve Siginak Hesabi'na yazar; `HESAP=EMSAL` ile yonlendirilemez.
-- Ayni fiziksel alani hem Yapi Insaat Alani'na hem %30 tablosuna yazdirmak icin **iki ayri zon** olusturun: biri `HESAP` olmadan (Yapi Insaat Alani), digeri `HESAP=EMSAL` ile (%30 tablosu). Tek bir zon her iki tabloyu birden doldurmaz.
-- `HESAP=EMSAL|TIP=HOL`, %30 tablosunda **ayri bir `hol` sutunu** olusturur; mevcut `kat_holu` sutunuyla otomatik birlesmez. Bolum 15'teki bagimsizlik kurali boylece korunur.
-- Hedef sutun panelde henuz yoksa (ornegin ilk kez `SACAK` kullaniliyorsa) aktarim sirasinda otomatik olarak eklenir; elle "Alan Basligi Ekle" yapmaya gerek yoktur.
-- Kisa yazim da calisir: `RH|B=A|H=EMSAL|T=MERDIVEN`.
-
-### Serbest (ozel) TIP degerleri: kendi alan kaleminizi tanimlayin
-
-`MERDIVEN`, `HOL`, `SACAK`, `ASANSOR`, `SIGINAK` ve diger sabit anahtar kelimelerin disinda yazilan **her `TIP` degeri**, kendi adiyla yeni bir Yapi Insaat Alani / Emsal Hesabi %30 kalemi olusturur -- panelde "Alan Basligi Ekle" ile elle eklediginiz bir sutunla ayni mantikla:
+Ornek: Panelde `Yangin Merdiveni` satiri eklendiginde zon adi soyle yazilabilir:
 
 ```text
-RH|BLOK=A|TIP=HAVUZ_KENARI
-RH|BLOK=A|HESAP=EMSAL|TIP=HAVUZ_KENARI
+RH|BLOK=A|TIP=YANGIN_MERDIVENI|MAHAL=YANGIN_MERDIVENI
 ```
 
-- `TIP` degeri kucuk harfe cevrilir, bosluklar tek alt cizgiye (`_`) donusturulur; sonuc panel sutununun anahtaridir. `TIP=Havuz Kenari` ile `TIP=HAVUZ_KENARI` ayni `havuz_kenari` sutununu olusturur.
-- `HESAP` yoksa alan Yapi Insaat Alani'na, `HESAP=EMSAL` ile Emsal Hesabi %30 tablosuna yazilir -- tipki `MERDIVEN`/`SACAK` gibi.
-- Sutun panelde yoksa aktarimda otomatik olarak eklenir.
-- Turkce karakterler ASCII'ye donusturulmez, oldugu gibi saklanir. Panelde "Alan Basligi Ekle" ile daha once elle yazilmis bir sutunla otomatik eslesmesini istiyorsaniz, `TIP` degerini panelde yazdiginiz etiketle **harfi harfine** ayni yazin; farkli yazim (ozellikle Turkce karakter kullanimindaki farklar) ayri bir sutun olusturur. Karisikligi onlemek icin ASCII ve alt cizgi kullanmaniz onerilir: `TIP=HAVUZ_KENARI`.
-- Bu deger `NET`, `BRUT`, `EKLENTI_NET`, `EKLENTI_BRUT`, `BALKON`, `ORTAK`, `MERDIVEN`, `HOL`, `EMSAL`, `EMSAL_DISI`, `SIGINAK`, `SACAK` veya `ASANSOR` ile **birebir** eslesirse, o sabit anlam kazanir; serbest kalem olarak degil, standart TIP olarak islenir.
+Emsal Hesabi %30 tablosuna eklenen bir satir icin:
 
-**`NITELIK` bu kodlarda kullanilmaz.** `NITELIK` (Bolum 3 ve 8) bagimsiz bolum niteligini (`MESKEN`, `OFIS`, `DUKKAN`...) tasir ve alan tipini belirlemez. `RH|BLOK=A|NITELIK=MERDIVEN` gecersiz bir zondur (`TIP` eksik oldugu icin hesaba alinmaz); dogru kod `RH|BLOK=A|TIP=MERDIVEN` veya `RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN` bicimindedir.
+```text
+RH|BLOK=A|HESAP=EMSAL|TIP=YANGIN_MERDIVENI|MAHAL=YANGIN_MERDIVENI
+```
+
+Daha uzun bir satir ornegi:
+
+```text
+Panel satiri: Makina Dairesi + Denge Tanki
+Zon adi:      RH|BLOK=A|TIP=MAKINA_DAIRESI_DENGE_TANKI
+```
+
+Eslesme ve otomatik satir olusturma sirasi:
+
+1. Eklenti once `TIP` metnini, ilgili tablonun (Yapi Insaat Alani icin `constructionKeys`, Emsal Hesabi %30 icin `HESAP=EMSAL` ile `thirtyPercentKeys`) mevcut satir basliklariyla karsilastirir. Karsilastirmada bosluk, tire, `+`, alt cizgi, noktalama ve Turkce karakter farklari yok sayilir; buyuk/kucuk harf onemli degildir. Ornegin panelde `Yangin Merdiveni` satiri varsa `TIP=YANGIN_MERDIVENI`, `TIP=Yangin-Merdiveni` veya `TIP=yangin merdiveni` ayni satira yazilir.
+2. Eslesen bir satir yoksa eklenti, `TIP` metninden otomatik yeni bir satir olusturur (kucuk harfe cevrilir, bosluklar alt cizgiye donusur; Turkce karakterler korunur). Bu durumda alan satiri panelde onceden bulunmasa da veri kaybolmaz.
+
+Diger kurallar:
+
+- Dinamik satir zonlarinda `BB` kullanilmaz.
+- Alan, zonun `BLOK` kodu ve Archicad ana katina gore ilgili hucreye yazilir.
+- Ayni `TIP`, blok ve katta birden fazla zon varsa alanlari toplanir.
+- `NET`, `BRUT`, `BALKON`, `EKLENTI_NET`, `EKLENTI_BRUT`, `ORTAK`, `MERDIVEN`, `HOL`, `EMSAL`, `EMSAL_DISI`, `SIGINAK`, `SACAK` ve `ASANSOR` ozel anlamli ayrilmis kodlardir; bu degerler dinamik satir eslesmesine girmez.
+- `NITELIK`, dinamik TIP eslesmesini etkilemez; bagimsiz kalir.
 
 ## 16. Ofis standardi onerisi
 
@@ -353,7 +366,7 @@ Proje ekibinde su kurallari sabitleyin:
 - Uzun anahtar bicimini kullanin.
 - Bloklari `A`, `B`, `C` olarak adlandirin.
 - BB numaralarinda iki haneli standardi koruyun: `01`, `02`, `03`.
-- TIP degerlerini yalnizca desteklenen kodlardan secin: `NET`, `BRUT`, `BALKON`, `EKLENTI_NET`, `EKLENTI_BRUT`, `ORTAK`, `MERDIVEN`, `HOL`, `EMSAL`, `EMSAL_DISI`, `SIGINAK`, `SACAK`, `ASANSOR`.
+- TIP degerini sabit desteklenen kodlardan veya Yapi Insaat Alani tablosunda goruntulenen dinamik satir kodundan secin.
 - ODA degerini tam sayi girin.
 - Mahal adlarini ASCII buyuk harfle yazin: `YATAK_ODASI_1`, `SALON`, `MUTFAK`.
 - Nitelik sozlugunu proje basinda belirleyin: `MESKEN`, `OFIS`, `DUKKAN`, `DEPO`.

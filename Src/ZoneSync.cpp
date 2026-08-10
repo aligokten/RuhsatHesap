@@ -42,39 +42,40 @@ std::string Normalize (std::string value)
     return value;
 }
 
-ZoneAreaType ParseAreaType (const std::string& value)
+// ASCII-folds, uppercases and collapses any run of non-alphanumeric
+// characters into a single separator -- used only to COMPARE two spellings
+// of the same panel column (e.g. matching a typed TIP value against a column
+// created via "Alan Basligi Ekle"), never as the column key itself. Two
+// values with different spacing, punctuation or Turkish characters but the
+// same letters/digits produce the same code here.
+std::string NormalizeAreaCode (std::string value)
 {
-    const std::string normalized = Normalize (value);
-    if (normalized.empty ()) return ZoneAreaType::Unknown;
-    if (normalized == "NET") return ZoneAreaType::Net;
-    if (normalized == "BRUT" || normalized == "GROSS") return ZoneAreaType::Gross;
-    if (normalized == "EKLENTI_NET" || normalized == "EKLENTINET") return ZoneAreaType::ExtensionNet;
-    if (normalized == "EKLENTI_BRUT" || normalized == "EKLENTIBRUT") return ZoneAreaType::ExtensionGross;
-    if (normalized == "BALKON") return ZoneAreaType::Balcony;
-    if (normalized == "ORTAK") return ZoneAreaType::Common;
-    if (normalized == "MERDIVEN") return ZoneAreaType::Stair;
-    if (normalized == "HOL") return ZoneAreaType::Hall;
-    if (normalized == "EMSAL") return ZoneAreaType::Emsal;
-    if (normalized == "EMSAL_DISI" || normalized == "EMSALDISI") return ZoneAreaType::EmsalOutside;
-    if (normalized == "SIGINAK") return ZoneAreaType::Shelter;
-    if (normalized == "SACAK") return ZoneAreaType::Eave;
-    if (normalized == "ASANSOR") return ZoneAreaType::Elevator;
-    // Anything else becomes a user-defined Yapi Insaat Alani / Emsal Hesabi
-    // %30 kalemi; see NormalizeAreaKey for how its column key is derived.
-    return ZoneAreaType::CustomFloorArea;
+    value = Normalize (std::move (value));
+    std::string result;
+    result.reserve (value.size ());
+    bool separatorPending = false;
+    for (const unsigned char character : value) {
+        if (std::isalnum (character) != 0) {
+            if (separatorPending && !result.empty ()) result.push_back ('_');
+            result.push_back (static_cast<char> (character));
+            separatorPending = false;
+        } else {
+            separatorPending = !result.empty ();
+        }
+    }
+    return result;
 }
 
-bool ParseHesapTarget (const std::string& value)
-{
-    return Normalize (value) == "EMSAL";
-}
-
-// Derives a FloorRecord::constructionAreas / thirtyPercentAreas map key (and
-// auxiliaryData column key) from a free-form TIP value, e.g. "Havuz Kenari"
-// -> "havuz_kenari". Mirrors RuhsatHesapPanel.html's normalizeAreaKey (ASCII
-// lowercased, whitespace runs collapsed to a single underscore) but only
-// touches the plain-ASCII letter range so multi-byte UTF-8 sequences (Turkish
-// characters) pass through unchanged rather than being corrupted byte-by-byte.
+// Derives a NEW FloorRecord::constructionAreas / thirtyPercentAreas map key
+// (and auxiliaryData column key) from a free-form TIP value when no existing
+// column matches it, e.g. "Havuz Kenari" -> "havuz_kenari". Mirrors
+// RuhsatHesapPanel.html's normalizeAreaKey (lowercase, whitespace runs
+// collapsed to underscore) so a freshly created column looks the same
+// whether it came from the panel's "Alan Basligi Ekle" dialog or from a zone.
+// Only touches the plain-ASCII letter range so multi-byte UTF-8 sequences
+// (Turkish characters) pass through unchanged rather than being corrupted
+// byte-by-byte, and unlike NormalizeAreaCode does not strip punctuation --
+// this is a key to store, not a code to compare.
 std::string NormalizeAreaKey (const std::string& rawValue)
 {
     const std::string value = Trim (rawValue);
@@ -92,10 +93,45 @@ std::string NormalizeAreaKey (const std::string& rawValue)
     return result;
 }
 
+ZoneAreaType ParseAreaType (const std::string& value)
+{
+    const std::string normalized = Normalize (value);
+    if (normalized == "NET") return ZoneAreaType::Net;
+    if (normalized == "BRUT" || normalized == "GROSS") return ZoneAreaType::Gross;
+    if (normalized == "EKLENTI_NET" || normalized == "EKLENTINET") return ZoneAreaType::ExtensionNet;
+    if (normalized == "EKLENTI_BRUT" || normalized == "EKLENTIBRUT") return ZoneAreaType::ExtensionGross;
+    if (normalized == "BALKON") return ZoneAreaType::Balcony;
+    if (normalized == "ORTAK") return ZoneAreaType::Common;
+    if (normalized == "MERDIVEN") return ZoneAreaType::Stair;
+    if (normalized == "HOL") return ZoneAreaType::Hall;
+    if (normalized == "EMSAL") return ZoneAreaType::Emsal;
+    if (normalized == "EMSAL_DISI" || normalized == "EMSALDISI") return ZoneAreaType::EmsalOutside;
+    if (normalized == "SIGINAK") return ZoneAreaType::Shelter;
+    if (normalized == "SACAK") return ZoneAreaType::Eave;
+    if (normalized == "ASANSOR") return ZoneAreaType::Elevator;
+    // Anything else is resolved later, in SyncZonesToProject, against the
+    // project's actual panel columns (see FindExistingAreaKey).
+    return ZoneAreaType::Unknown;
+}
+
+bool ParseHesapTarget (const std::string& value)
+{
+    return Normalize (value) == "EMSAL";
+}
+
+bool IsIndependentUnitArea (ZoneAreaType areaType)
+{
+    return areaType == ZoneAreaType::Net ||
+        areaType == ZoneAreaType::Gross ||
+        areaType == ZoneAreaType::ExtensionNet ||
+        areaType == ZoneAreaType::ExtensionGross ||
+        areaType == ZoneAreaType::Balcony;
+}
+
 // Key used both as the FloorRecord::constructionAreas / thirtyPercentAreas map
 // key and as the auto-registered column header in auxiliaryData, for the
-// fixed named area types. CustomFloorArea has no fixed key -- its key comes
-// from ParsedZoneName::floorAreaKey (see NormalizeAreaKey) instead.
+// fixed named area types. CustomFloorArea has no fixed key -- see
+// FindExistingAreaKey / NormalizeAreaKey instead.
 std::string FloorAreaKey (ZoneAreaType areaType)
 {
     switch (areaType) {
@@ -108,11 +144,12 @@ std::string FloorAreaKey (ZoneAreaType areaType)
     }
 }
 
-// Mirrors the default column lists seeded by RuhsatHesapPanel.html's
-// normalize(). Keeping the two in sync means a key auto-registered here
-// renders as a real column immediately, instead of a value hidden inside an
-// unlisted map key.
-void EnsureAreaKeyColumn (nlohmann::json& auxiliaryData, const char* arrayField, const std::string& key)
+// Same default column lists RuhsatHesapPanel.html's normalize() seeds a
+// brand-new project with, before the first browser save. Kept here so a zone
+// synced before any panel save still matches the row the panel will
+// eventually show, and so EnsureAreaKeyColumn can seed the full default list
+// (not just the one key currently being written) the first time it runs.
+const std::vector<std::string>& DefaultAreaKeys (bool thirtyPercent)
 {
     static const std::vector<std::string> thirtyPercentDefaults = {
         "merdiven", "acik_cikma", "sacak", "havuz", "asansor", "kat_holu", "giris_terasi"
@@ -121,27 +158,57 @@ void EnsureAreaKeyColumn (nlohmann::json& auxiliaryData, const char* arrayField,
         "merdiven", "asansor", "bosluklar", "siginak", "sacak", "makina_odasi",
         "enerji_odasi", "hol", "su_deposu", "haberlesme_odasi"
     };
+    return thirtyPercent ? thirtyPercentDefaults : constructionDefaults;
+}
+
+// Finds a panel column (in auxiliaryData[arrayField], or the not-yet-saved
+// defaults) whose spelling matches areaTypeName once both are folded through
+// NormalizeAreaCode, e.g. "Yangin Merdiveni" matches a "yangin_merdiveni"
+// column created via "Alan Basligi Ekle"/"Alan Satiri Ekle". Returns the
+// EXISTING key as stored (not areaTypeName's own spelling) so a new zone
+// keeps feeding the same column regardless of how its TIP text is typed.
+// Empty return means no existing column matches.
+std::string FindExistingAreaKey (const ProjectData& project, const char* arrayField, const std::string& areaTypeName)
+{
+    const std::string requestedCode = NormalizeAreaCode (areaTypeName);
+    if (requestedCode.empty ()) return {};
+
+    if (project.auxiliaryData.is_object () && project.auxiliaryData.contains (arrayField)) {
+        const nlohmann::json& keys = project.auxiliaryData.at (arrayField);
+        if (keys.is_array ()) {
+            for (const nlohmann::json& keyValue : keys) {
+                if (!keyValue.is_string ()) continue;
+                const std::string key = keyValue.get<std::string> ();
+                if (NormalizeAreaCode (key) == requestedCode) return key;
+            }
+            return {};
+        }
+    }
+
+    const bool isThirtyPercent = std::string (arrayField) == "thirtyPercentKeys";
+    for (const std::string& key : DefaultAreaKeys (isThirtyPercent))
+        if (NormalizeAreaCode (key) == requestedCode) return key;
+    return {};
+}
+
+// Mirrors the default column lists seeded by RuhsatHesapPanel.html's
+// normalize(). Keeping the two in sync means a key auto-registered here
+// renders as a real column immediately, instead of a value hidden inside an
+// unlisted map key.
+void EnsureAreaKeyColumn (nlohmann::json& auxiliaryData, const char* arrayField, const std::string& key)
+{
     const bool isThirtyPercent = std::string (arrayField) == "thirtyPercentKeys";
 
     nlohmann::json& array = auxiliaryData[arrayField];
     if (!array.is_array ()) {
         array = nlohmann::json::array ();
-        for (const std::string& defaultKey : (isThirtyPercent ? thirtyPercentDefaults : constructionDefaults))
+        for (const std::string& defaultKey : DefaultAreaKeys (isThirtyPercent))
             array.push_back (defaultKey);
     }
     const bool alreadyPresent = std::any_of (array.begin (), array.end (), [&] (const nlohmann::json& entry) {
         return entry.is_string () && entry.get<std::string> () == key;
     });
     if (!alreadyPresent) array.push_back (key);
-}
-
-bool IsIndependentUnitArea (ZoneAreaType areaType)
-{
-    return areaType == ZoneAreaType::Net ||
-        areaType == ZoneAreaType::Gross ||
-        areaType == ZoneAreaType::ExtensionNet ||
-        areaType == ZoneAreaType::ExtensionGross ||
-        areaType == ZoneAreaType::Balcony;
 }
 
 double JsonNumber (const nlohmann::json& object, const char* key)
@@ -254,8 +321,8 @@ ParsedZoneName ParseZoneName (const std::string& zoneName)
         if (key == "BLOK" || key == "B") result.blockName = Normalize (value);
         else if (key == "BB" || key == "BAGIMSIZBOLUM") result.unitNumber = value;
         else if (key == "TIP" || key == "T") {
+            result.areaTypeName = value;
             result.areaType = ParseAreaType (value);
-            if (result.areaType == ZoneAreaType::CustomFloorArea) result.floorAreaKey = NormalizeAreaKey (value);
         }
         else if (key == "ODA" || key == "O") {
             try { result.roomCount = std::max (0, std::stoi (value)); } catch (...) { result.roomCount = 0; }
@@ -328,6 +395,23 @@ ZoneSyncResult SyncZonesToProject (ProjectData& project, const std::vector<ZoneO
             continue;
         }
 
+        // TIP values outside the reserved keyword list are resolved here,
+        // against the project's actual panel columns: first an existing
+        // Yapi Insaat Alani (default) or Emsal Hesabi %30 (HESAP=EMSAL) row
+        // that matches once spelling differences are folded away, otherwise
+        // a brand-new column derived from the TIP text.
+        std::string customAreaKey;
+        if (parsed.areaType == ZoneAreaType::Unknown && !parsed.areaTypeName.empty () && !parsed.blockName.empty ()) {
+            const char* arrayField = parsed.toThirtyPercentTable ? "thirtyPercentKeys" : "constructionKeys";
+            customAreaKey = FindExistingAreaKey (project, arrayField, parsed.areaTypeName);
+            if (customAreaKey.empty ()) customAreaKey = NormalizeAreaKey (parsed.areaTypeName);
+            if (!customAreaKey.empty ()) {
+                parsed.areaType = ZoneAreaType::CustomFloorArea;
+                parsed.valid = true;
+                parsed.error.clear ();
+            }
+        }
+
         if (IsIndependentUnitArea (parsed.areaType) && parsed.unitNumber.empty ()) parsed.unitNumber = Trim (observation.zoneNumber);
         const bool requiresUnitNumber = IsIndependentUnitArea (parsed.areaType);
         const bool requiresFloor = parsed.areaType != ZoneAreaType::Common;
@@ -359,7 +443,7 @@ ZoneSyncResult SyncZonesToProject (ProjectData& project, const std::vector<ZoneO
                     // Hesabi %30 istisna tablosu instead of Yapi Insaat Alani.
                     // Sığınak is intentionally excluded: it always feeds Yapi
                     // Insaat Alani plus the dedicated Sığınak Hesabi total.
-                    const std::string& areaKey = parsed.areaType == ZoneAreaType::CustomFloorArea ? parsed.floorAreaKey : FloorAreaKey (parsed.areaType);
+                    const std::string& areaKey = parsed.areaType == ZoneAreaType::CustomFloorArea ? customAreaKey : FloorAreaKey (parsed.areaType);
                     if (parsed.toThirtyPercentTable) floorAggregate.thirtyPercentAreas[areaKey] += observation.area;
                     else floorAggregate.constructionAreas[areaKey] += observation.area;
                     break;

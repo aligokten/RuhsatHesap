@@ -456,7 +456,7 @@ def cover_and_contents(styles) -> list:
         code_block(["RH|BLOK=A|BB=01|TIP=NET|ODA=3|MAHAL=SALON|NITELIK=MESKEN"], styles),
         Spacer(1, 11 * mm),
         quote_block(
-            "Sürüm notu: Bu kılavuz Ruhsat Hesap 0.5.9 içinde çalışan zon okuyucu kurallarına göre hazırlanmıştır.",
+            "Sürüm notu: Bu kılavuz Ruhsat Hesap 0.6.0 içinde çalışan zon okuyucu kurallarına göre hazırlanmıştır.",
             styles,
         ),
         Spacer(1, 15 * mm),
@@ -498,7 +498,7 @@ def draw_page(canvas, doc):
         canvas.line(LEFT, 10 * mm, PAGE_WIDTH - RIGHT, 10 * mm)
         canvas.setFont("RH-Sans", 6.5)
         canvas.setFillColor(MUTED)
-        canvas.drawString(LEFT, 6.7 * mm, "Ruhsat Hesap 0.5.9")
+        canvas.drawString(LEFT, 6.7 * mm, "Ruhsat Hesap 0.6.0")
         canvas.drawRightString(PAGE_WIDTH - RIGHT, 6.7 * mm, f"Sayfa {page}")
     else:
         canvas.setFillColor(GREEN)

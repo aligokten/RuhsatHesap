@@ -46,7 +46,7 @@ Bu paket, Ruhsat Hesap web arayüzünü Archicad 29.2.0 Build 5003 (Windows x64)
 
 ## Geliştirme durumu
 
-Bu paket `0.5.9` geliştirme sürümüdür. Graphisoft tarafından onaylanan Developer ID ve **Ruhsat Hesap** Local ID, `RFIX/AddOnFix.grc` içindeki `MDID` kaynağına uygulanmıştır. Eklenti yeniden derlendiğinde normal Archicad 29 oturumunda yüklenmeye hazırdır.
+Bu paket `0.6.0` geliştirme sürümüdür. Graphisoft tarafından onaylanan Developer ID ve **Ruhsat Hesap** Local ID, `RFIX/AddOnFix.grc` içindeki `MDID` kaynağına uygulanmıştır. Eklenti yeniden derlendiğinde normal Archicad 29 oturumunda yüklenmeye hazırdır.
 
 Modal başlangıç penceresi kaldırılmıştır. **Seçenekler → Ruhsat Hesap Paleti** komutu artık Archicad'i kilitlemeden çalışan tek örnekli bir paleti gösterir veya gizler. Paletin tek kontrolü Graphisoft `DG::Browser` bileşenidir; yerel web arayüzü kaynak olarak `.apx` içine gömülür. Palet başlığındaki kapatma düğmesi paleti yok etmek yerine gizler; böylece aynı oturumda veri ve konum korunur.
 
@@ -76,14 +76,14 @@ Paletteki **Excel ve Pafta Tablosu Üret** komutu önce Archicad zonlarını yen
 PowerShell (önerilen):
 
 ```powershell
-cd C:\RuhsatHesap-v0.5.9\archicad-ruhsat-hesap
+cd C:\RuhsatHesap-v0.6.0\archicad-ruhsat-hesap
 .\build-windows.ps1 -DevKitDir "C:\Graphisoft\API.Development.Kit.WIN.29.3100\Support"
 ```
 
 Komut istemi:
 
 ```bat
-cd /d C:\RuhsatHesap-v0.5.9\archicad-ruhsat-hesap
+cd /d C:\RuhsatHesap-v0.6.0\archicad-ruhsat-hesap
 set AC_API_DEVKIT_DIR=C:\Graphisoft\API.Development.Kit.WIN.29.3100\Support
 build-windows.bat
 ```
