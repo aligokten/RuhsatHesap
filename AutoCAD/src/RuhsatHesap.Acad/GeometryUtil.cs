@@ -45,11 +45,11 @@ namespace RuhsatHesap.Acad
                     default:
                         return false;
                 }
-            } catch (Autodesk.AutoCAD.Runtime.Exception) {
-                // Curve.Area throws for self-intersecting or non-planar
-                // outlines; those are reported as unmeasurable.
-                return false;
-            } catch (InvalidOperationException) {
+            } catch (System.Exception) {
+                // Area throws for non-planar, degenerate or self-intersecting
+                // outlines, and the exception type differs per entity class.
+                // Whatever the reason, the object is simply unmeasurable and
+                // the caller reports it as such.
                 return false;
             }
         }
@@ -60,7 +60,8 @@ namespace RuhsatHesap.Acad
             try {
                 extents = entity.GeometricExtents;
                 return true;
-            } catch (Autodesk.AutoCAD.Runtime.Exception) {
+            } catch (System.Exception) {
+                // Empty blocks and degenerate entities have no extents.
                 return false;
             }
         }
@@ -113,7 +114,8 @@ namespace RuhsatHesap.Acad
                         }
                         return points;
                     }
-                } catch (Autodesk.AutoCAD.Runtime.Exception) {
+                } catch (System.Exception) {
+                    // Fall through to the bounding box below.
                     points.Clear ();
                 }
             }
