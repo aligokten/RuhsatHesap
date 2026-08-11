@@ -22,6 +22,27 @@ Aktarim icin Ruhsat Hesap paletinde:
 2. Durum satirindaki taranan ve aktarilan zon sayilarini kontrol edin.
 3. `PLN Kaydet` ile hesap verisini proje dosyasina yazin.
 
+### Kodu elle yazmadan olusturma: "Zon Kodu" formu
+
+Kodu Archicad'in dar **Zon Adi** kutusuna elle yazmak yerine, Ruhsat Hesap paletinin ust seridindeki **Zon Kodu** dugmesiyle acilan formu kullanabilirsiniz. Form alanlari doldurulur, kod asagida canli olarak olusur ve **Secili Zonlara Yaz** dugmesi kodu Archicad'de o an secili tum zonlarin adina bir kerede yazar.
+
+1. Archicad'de kodlanacak zonu (veya birden fazla zonu) secin.
+2. Palette **Zon Kodu** dugmesine basin. Secili zonda zaten bir `RH|` kodu varsa form o degerlerle dolar.
+3. Alanlari doldurun; alt taraftaki kutuda olusan kodu kontrol edin.
+4. **Secili Zonlara Yaz** ile uygulayin. Islem Archicad'in geri al (undo) yiginina yazilir; `Ctrl+Z` ile geri alinabilir.
+
+Formun davranisi:
+
+- **Hesap kodu** sabit `RH`'dir ve degistirilemez.
+- **Hesap tipi (TIP)** listesi sabit kodlari, paneldeki mevcut alan satirlarini ve serbest metin icin `Diger` secenegini icerir.
+- **Bagimsiz bolum no**, **Oda sayisi** ve **Nitelik** yalnizca bagimsiz bolum tiplerinde (`NET`, `BRUT`, `EKLENTI_NET`, `EKLENTI_BRUT`, `BALKON`) gorunur; kat/ortak alan tiplerinde bu alanlar zaten okunmadigi icin gizlenir ve koda yazilmaz.
+- **Emsal Hesabi %30 istisna tablosuna yaz** kutusu yalnizca `HESAP=EMSAL` ile yonlendirilebilen tiplerde cikar (bkz. Bolum 4).
+- **Nitelik** listesine `Diger` ile eklenen deger proje verisine kaydedilir ve sonraki zonlarda listede hazir bekler.
+- Degerlerdeki `|` karakteri otomatik temizlenir; kodun bolunmesi engellenir.
+- Zon secili degilse **Kodu Kopyala** ile kod panoya alinip Zon Adi alanina yapistirilabilir.
+
+Zon adi yazildiktan sonra eklenti zonlari otomatik yeniden okur; ayrica `Zonlari Aktar` demeye gerek yoktur.
+
 ## 2. Kodun yapisi
 
 Kod, dikey cizgi `|` ile ayrilan parcalardan olusur:

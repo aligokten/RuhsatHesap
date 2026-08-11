@@ -15,9 +15,12 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <functional>
 #include <iomanip>
 #include <memory>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #if defined (WINDOWS)
 #include <commdlg.h>
@@ -267,6 +270,104 @@ public:
     }
 
 private:
+    // Guids of the zones inside the current Archicad selection. Non-zone
+    // elements in a mixed selection are skipped rather than rejected, so the
+    // panel form still works when a zone is picked together with its walls.
+    std::vector<API_Guid> GetSelectedZoneGuids () const
+    {
+        std::vector<API_Guid> zoneGuids;
+        API_SelectionInfo selectionInfo {};
+        GS::Array<API_Neig> selectedNeigs;
+        const GSErrCode selectionError = ACAPI_Selection_Get (&selectionInfo, &selectedNeigs, false);
+        BMKillHandle (reinterpret_cast<GSHandle*> (&selectionInfo.marquee.coords));
+        if (selectionError != NoError) return zoneGuids;
+
+        for (const API_Neig& neig : selectedNeigs) {
+            API_Element element {};
+            element.header.guid = neig.guid;
+            if (ACAPI_Element_Get (&element) != NoError) continue;
+            if (element.header.type.typeID != API_ZoneID) continue;
+            zoneGuids.push_back (neig.guid);
+        }
+        return zoneGuids;
+    }
+
+    std::string SelectedZonesJson () const
+    {
+        nlohmann::json zones = nlohmann::json::array ();
+        for (const API_Guid& zoneGuid : GetSelectedZoneGuids ()) {
+            API_Element element {};
+            element.header.guid = zoneGuid;
+            if (ACAPI_Element_Get (&element) != NoError) continue;
+            const GS::UniString unicodeName (element.zone.roomName);
+            const GS::UniString unicodeNumber (element.zone.roomNoStr);
+            zones.push_back ({
+                {"guid", std::string (APIGuidToString (zoneGuid).ToCStr ().Get ())},
+                {"name", std::string (unicodeName.ToCStr (0, MaxUSize, CC_UTF8).Get ())},
+                {"number", std::string (unicodeNumber.ToCStr (0, MaxUSize, CC_UTF8).Get ())}
+            });
+        }
+        const nlohmann::json response = {{"ok", true}, {"count", zones.size ()}, {"zones", zones}};
+        return response.dump ();
+    }
+
+    // Writes the panel form's generated RH code into the Zone Name of every
+    // selected zone, then re-runs the zone import so the tables update without
+    // a separate "Zonları Aktar" click.
+    bool ApplyZoneNameToSelection (const std::string& payload)
+    {
+        std::string zoneName;
+        try {
+            const nlohmann::json parsed = nlohmann::json::parse (payload);
+            if (parsed.is_object () && parsed.contains ("name") && parsed.at ("name").is_string ())
+                zoneName = parsed.at ("name").get<std::string> ();
+        } catch (const std::exception& exception) {
+            SetStatus ("Zon adı verisi okunamadı: " + std::string (exception.what ()));
+            return false;
+        }
+        if (zoneName.empty ()) {
+            SetStatus ("Zon adı boş olamaz.");
+            return false;
+        }
+
+        const std::vector<API_Guid> zoneGuids = GetSelectedZoneGuids ();
+        if (zoneGuids.empty ()) {
+            SetStatus ("Önce Archicad'de en az bir zon seçin.");
+            return false;
+        }
+
+        GS::UniString unicodeName (zoneName.c_str (), CC_UTF8);
+        if (unicodeName.GetLength () >= API_UniLongNameLen)
+            unicodeName = unicodeName.GetSubstring (0, API_UniLongNameLen - 1);
+
+        std::size_t applied = 0;
+        const GSErrCode commandError = ACAPI_CallUndoableCommand (GS::UniString ("Ruhsat Hesap zon adı", CC_UTF8), [&] () -> GSErrCode {
+            for (const API_Guid& zoneGuid : zoneGuids) {
+                API_Element element {};
+                element.header.guid = zoneGuid;
+                if (ACAPI_Element_Get (&element) != NoError) continue;
+
+                API_Element mask {};
+                ACAPI_ELEMENT_MASK_CLEAR (mask);
+                ACAPI_ELEMENT_MASK_SET (mask, API_ZoneType, roomName);
+                GS::ucscpy (element.zone.roomName, unicodeName.ToUStr ().Get ());
+                if (ACAPI_Element_Change (&element, &mask, nullptr, 0, true) == NoError) ++applied;
+            }
+            return NoError;
+        });
+
+        if (applied == 0) {
+            SetStatus (commandError == NoError
+                ? "Zon adı yazılamadı. Zonlar kilitli veya rezerve edilmiş olabilir."
+                : "Zon adı yazılamadı; Archicad komutu reddetti.");
+            return false;
+        }
+
+        RefreshZonesFromArchicad (false);
+        SetStatus (std::to_string (applied) + " zona \"" + zoneName + "\" adı yazıldı. " + lastStatusMessage);
+        return true;
+    }
+
     static GS::UniString LoadEmbeddedHtml ()
     {
         GSHandle data = RSLoadResource ('DATA', ACAPI_GetOwnResModule (), ID_WEB_APP_DATA);
@@ -327,6 +428,15 @@ private:
 
         native->AddItem (new JS::Function ("ReadZones", [this] (GS::Ref<JS::Base>) {
             const bool success = RefreshZonesFromArchicad (true);
+            return ToJavaScriptString (MakeSnapshot (success, lastStatusMessage));
+        }));
+
+        native->AddItem (new JS::Function ("GetSelectedZones", [this] (GS::Ref<JS::Base>) {
+            return ToJavaScriptString (SelectedZonesJson ());
+        }));
+
+        native->AddItem (new JS::Function ("ApplyZoneName", [this] (GS::Ref<JS::Base> argument) {
+            const bool success = ApplyZoneNameToSelection (GetStringFromJavaScript (argument));
             return ToJavaScriptString (MakeSnapshot (success, lastStatusMessage));
         }));
 

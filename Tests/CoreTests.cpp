@@ -93,6 +93,26 @@ int main ()
     assert (RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=  ").areaType == RuhsatHesap::ZoneAreaType::Unknown);
     assert (!RuhsatHesap::ParseZoneName ("SALON").ruhsatZone);
 
+    // Contract with the panel's "Zon Kodu" form: these are the exact strings
+    // buildZoneName() emits in RuhsatHesapPanel.html (see Tests/PanelHtmlTests.js,
+    // which asserts the same literals from the JS side). Parsing them here keeps
+    // the generator and the reader from drifting apart.
+    const auto formUnitCode = RuhsatHesap::ParseZoneName ("RH|BLOK=A|BB=01|TIP=NET|ODA=3|MAHAL=SALON|NITELIK=MESKEN");
+    assert (formUnitCode.valid);
+    assert (formUnitCode.blockName == "A" && formUnitCode.unitNumber == "01");
+    assert (formUnitCode.areaType == RuhsatHesap::ZoneAreaType::Net && formUnitCode.roomCount == 3);
+    const auto formThirtyPercentCode = RuhsatHesap::ParseZoneName ("RH|BLOK=A|HESAP=EMSAL|TIP=MERDIVEN");
+    assert (formThirtyPercentCode.valid && formThirtyPercentCode.toThirtyPercentTable);
+    assert (formThirtyPercentCode.areaType == RuhsatHesap::ZoneAreaType::Stair);
+    const auto formCustomCode = RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=YANGIN_MERDIVENI");
+    assert (formCustomCode.areaTypeName == "YANGIN_MERDIVENI");
+    const auto formGrossCode = RuhsatHesap::ParseZoneName ("RH|BLOK=A|BB=2|TIP=BRUT");
+    assert (formGrossCode.valid && formGrossCode.roomCount == 0);
+    assert (formGrossCode.areaType == RuhsatHesap::ZoneAreaType::Gross);
+    // The form strips "|" out of free-text values so a stray pipe cannot split the code.
+    const auto formSanitizedCode = RuhsatHesap::ParseZoneName ("RH|BLOK=A|TIP=NET|MAHAL=A B");
+    assert (formSanitizedCode.valid && formSanitizedCode.roomName == "A B");
+
     RuhsatHesap::ProjectData defaultConstructionProject;
     const auto defaultConstructionSync = RuhsatHesap::SyncZonesToProject (defaultConstructionProject, {
         {"RH|BLOK=A|TIP=ASANSÖR", "", "Zemin Kat", 0, 4.25, "default-construction"},

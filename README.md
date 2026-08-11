@@ -16,6 +16,8 @@ Bu paket, Ruhsat Hesap web arayüzünü Archicad 29.2.0 Build 5003 (Windows x64)
 - Archicad Kat Ayarları listesindeki kat adı, kat indeksi, benzersiz kat kimliği ve kotun otomatik okunması
 - Palet açıldığında ve Archicad katları düzenlendiğinde kat listesinin otomatik yenilenmesi
 - Okunan katların mevcut tüm bloklara yalnız eksik kayıtlar eklenerek aktarılması
+- **Zon Kodu** formu ile `RH|...` zon adının Archicad'in dar Zon Adı kutusuna elle yazılmadan, açılır listelerden seçilerek oluşturulması ve seçili zonlara tek adımda (geri alınabilir şekilde) yazılması
+- Seçili zondaki mevcut `RH` kodunun forma geri yüklenerek düzenlenebilmesi
 - `RH` zon adı standardındaki zonlardan blok, bağımsız bölüm no, bulunduğu kat, oda sayısı ve alanların okunması
 - Net, brüt, eklenti net/brüt ve balkon zon alanlarının bağımsız bölüm bazında toplanması
 - `ORTAK`, `MERDIVEN`, `HOL`, `EMSAL`, `EMSAL_DISI`, `SIGINAK`, `SACAK` ve `ASANSOR` zonlarının ilgili ortak alan, yapı inşaat alanı, emsal ve sığınak modüllerine blok/kat bazında aktarılması
