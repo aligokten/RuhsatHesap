@@ -2,6 +2,13 @@
 
 Bu paket, Ruhsat Hesap web arayüzünü Archicad 29.2.0 Build 5003 (Windows x64) içinde çevrimdışı çalışan sabitlenebilir bir palete dönüştüren yerel eklentidir.
 
+> **AutoCAD kullanıyorsanız:** Aynı programın AutoCAD sürümü
+> [`AutoCAD/`](AutoCAD/README.md) klasöründedir. Zon yerine **kapalı
+> polylineların alanını** okur; polyline seçimli alan hesap tabloları, emsal,
+> yapı inşaat alanı, bağımsız bölüm ve kat irtifakı tablolarını doğrudan çizime
+> yerleştirir, Excel'e aktarır. Proje dosyası biçimi ortaktır: bir projeyi web
+> panelinde, Archicad'de ve AutoCAD'de aynı `.json` ile taşıyabilirsiniz.
+
 ## Bu sürümde hazır olanlar
 
 - Archicad `Seçenekler` menüsüne **Ruhsat Hesap Paneli** komutu eklenmesi
