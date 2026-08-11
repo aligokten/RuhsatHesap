@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net48 covers AutoCAD 2019-2024, net8.0-windows covers AutoCAD 2025
+         and newer, which moved to .NET 8. Both builds share the same source
+         and the same RuhsatHesap.Core assembly. -->
+    <TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>RuhsatHesap.Acad</AssemblyName>
+    <RootNamespace>RuhsatHesap.Acad</RootNamespace>
+    <Platforms>AnyCPU</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AssemblyTitle>Ruhsat Hesap AutoCAD Eklentisi</AssemblyTitle>
+    <Product>Ruhsat Hesap</Product>
+    <Company>Ali Gökten</Company>
+    <Copyright>© 2026 Ali Gökten</Copyright>
+    <Version>0.6.0</Version>
+    <Deterministic>true</Deterministic>
+    <!-- AutoCAD loads the add-in into its own AppDomain; copying AutoCAD's own
+         assemblies next to the plug-in would shadow the running ones. -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <!-- The AutoCAD file dialogs return a Windows Forms DialogResult. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RuhsatHesap.Core\RuhsatHesap.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="AutoCAD.NET" Version="24.3.0">
+      <ExcludeAssets>runtime</ExcludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <PackageReference Include="AutoCAD.NET" Version="25.0.1">
+      <ExcludeAssets>runtime</ExcludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

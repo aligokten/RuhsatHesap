@@ -1,0 +1,62 @@
+name: Build AutoCAD Plugin
+
+# Ruhsat Hesap AutoCAD eklentisini derler, çekirdek testleri çalıştırır ve
+# doğrudan kurulabilir bir RuhsatHesap.bundle paketi üretir.
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'claude/**'
+    paths:
+      - 'AutoCAD/**'
+      - '.github/workflows/build-autocad.yml'
+  pull_request:
+    paths:
+      - 'AutoCAD/**'
+      - '.github/workflows/build-autocad.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+
+      - name: Restore
+        run: dotnet restore AutoCAD/RuhsatHesap.AutoCAD.sln
+
+      - name: Run core tests
+        run: dotnet test AutoCAD/tests/RuhsatHesap.Core.Tests/RuhsatHesap.Core.Tests.csproj -c Release --no-restore
+
+      - name: Build plug-in
+        run: dotnet build AutoCAD/src/RuhsatHesap.Acad/RuhsatHesap.Acad.csproj -c Release --no-restore
+
+      - name: Package bundle
+        shell: pwsh
+        run: |
+          $bundle = "artifacts/RuhsatHesap.bundle"
+          New-Item -ItemType Directory -Force -Path "$bundle/Contents/net48" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$bundle/Contents/net8.0-windows" | Out-Null
+          Copy-Item AutoCAD/bundle/PackageContents.xml "$bundle/PackageContents.xml"
+          Copy-Item AutoCAD/src/RuhsatHesap.Acad/bin/Release/net48/RuhsatHesap.*.dll "$bundle/Contents/net48/"
+          Copy-Item AutoCAD/src/RuhsatHesap.Acad/bin/Release/net8.0-windows/RuhsatHesap.*.dll "$bundle/Contents/net8.0-windows/"
+          Copy-Item AutoCAD/README.md "$bundle/OKUBENI.md"
+          Get-ChildItem -Recurse $bundle | Select-Object FullName
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: RuhsatHesap-AutoCAD-bundle
+          path: artifacts/RuhsatHesap.bundle/**
+          if-no-files-found: error
+          retention-days: 90

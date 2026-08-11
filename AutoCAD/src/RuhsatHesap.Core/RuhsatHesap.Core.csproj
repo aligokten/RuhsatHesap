@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- netstandard2.0 keeps a single core assembly usable both from the
+         .NET Framework 4.8 build (AutoCAD 2019-2024) and from the .NET 8
+         build (AutoCAD 2025+). -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>RuhsatHesap.Core</RootNamespace>
+    <AssemblyName>RuhsatHesap.Core</AssemblyName>
+    <NeutralLanguage>tr-TR</NeutralLanguage>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- The plug-in is loaded into AutoCAD's own AppDomain, where a stray
+         third-party assembly version easily clashes with one AutoCAD already
+         loaded. The core therefore has no NuGet dependency at all: JSON and
+         the .xlsx writer are implemented in this project. -->
+    <EnableDefaultItems>true</EnableDefaultItems>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+</Project>
