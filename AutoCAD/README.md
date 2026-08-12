@@ -147,12 +147,18 @@ dokunmaz.
 değerleri yeniler, elle girdiğiniz kalemlere dokunmaz.
 
 `RHTARA` ayrıca aynı kaleme (aynı blok+kat+tip ya da aynı blok+bağımsız
-bölüm+tip) düşen iki nesnenin alanı neredeyse birebir aynıysa (%0,2 tolerans)
-uyarır: bu, bir bölgenin hem taralı (HATCH) hem sınır çizgisiyle
-(polyline/region) etiketlenip iki kez sayılmasının tipik belirtisidir —
-hesaplanan alan gerçekte olması gerekenin yaklaşık iki katı çıkar. Uyarı iki
-nesnenin handle'ını (`<...>`) adı geçirir; ilgili nesneleri `RHSOR` ile
-bulup yalnızca birinde etiket bırakın.
+bölüm+tip) düşen iki nesnenin alanı neredeyse aynıysa (%1 tolerans)
+**ÇİFT ETİKET** uyarısı verir: bu, bir bölgenin hem taralı (HATCH) hem sınır
+çizgisiyle (polyline/region) etiketlenip iki kez sayılmasının tipik
+belirtisidir — hesaplanan alan gerçekte olması gerekenin yaklaşık iki katı
+çıkar. Taralı bir alan ile onun sınır çizgisi, duvar kalınlığı nedeniyle
+birebir aynı ölçülmez (ör. 4,69 ve 4,68 m²), bu yüzden tolerans dar
+tutulmaz. Uyarı iki nesnenin handle'ını (`<...>`) ve oluşan şişkin toplamı
+yazar; nesneleri `RHSOR` ile bulup yalnızca birinde etiket bırakın.
+
+Uyarılar hem AutoCAD komut satırında hem de **RHPANEL'in alt kısmında**
+görünür — panelden "Çizimi Tara" ile taradığınızda da uyarıları kaçırmazsınız
+(bir uyarıya çift tıklayarak metnini kopyalayabilirsiniz).
 
 Bir `TIP=EMSAL` sınırının içinde merdiven/hol/asansör/saçak, serbest %30
 kalemleri veya `EMSAL_DISI` gibi ayrıca etiketlenmiş bir iç alan varsa,

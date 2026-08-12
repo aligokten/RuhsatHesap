@@ -359,6 +359,28 @@ namespace RuhsatHesap.Core.Tests
         }
 
         [Fact]
+        public void HatchAndBoundaryDifferingByTwoTenthsOfAPercentStillWarn ()
+        {
+            // Gerçek bildirilen vaka: aynı merdiven hem taralı hem sınır
+            // çizgisiyle etiketlenmiş, alanlar 4,69 ve 4,68 m² okunmuş
+            // (%0,213 fark) ve %30 kalemi sessizce 9,37 m² olmuş. Eski %0,2
+            // eşiği bunu kıl payı kaçırıyordu.
+            var project = new ProjectData ();
+            TagSyncResult result = TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|BLOK=A|KAT=ZEMİN|TIP=MERDIVEN|HESAP=EMSAL", 4.69, "ZEMİN", "H1"),
+                Observation ("RH|BLOK=A|KAT=ZEMİN|TIP=MERDIVEN|HESAP=EMSAL", 4.68, "ZEMİN", "P1")
+            });
+
+            Assert.Contains (result.Problems, message =>
+                message.Contains ("<H1>") && message.Contains ("<P1>") && message.Contains ("ÇİFT ETİKET"));
+
+            // Uyarı hesabı değiştirmez; kullanıcı etiketi kaldırana kadar
+            // şişkin toplam görünmeye devam eder -- uyarının amacı da budur.
+            FloorRecord floor = project.Blocks[0].Floors.Single ();
+            Assert.Equal (9.37, floor.ThirtyPercentAreas["merdiven"], 2);
+        }
+
+        [Fact]
         public void GenuinelyDifferentAreasInTheSameBucketDoNotWarn ()
         {
             var project = new ProjectData ();

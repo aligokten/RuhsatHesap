@@ -157,19 +157,10 @@ namespace RuhsatHesap.Acad.Commands
 
             try {
                 DrawingSettings settings = DrawingStore.LoadSettings (database);
-                ProjectData project = DrawingStore.LoadProject (database);
-                var stats = new ScanStats ();
-                List<AreaObservation> observations;
-
-                using (document.LockDocument ())
-                using (Transaction transaction = database.TransactionManager.StartTransaction ()) {
-                    observations = DrawingScanner.Collect (database, transaction,
-                        DrawingScanner.ModelSpaceIds (database, transaction), settings, false, stats);
-                    transaction.Commit ();
-                }
-
-                TagSyncResult result = TagSync.Sync (project, observations);
-                DrawingStore.SaveProject (database, project);
+                ScanOutcome outcome = ScanRunner.Run (document);
+                ProjectData project = outcome.Project;
+                ScanStats stats = outcome.Stats;
+                TagSyncResult result = outcome.Result;
 
                 AcadUi.WriteHeader (editor, "ÇİZİM TARAMASI");
                 AcadUi.Write (editor, "Çizim birimi     : " + DrawingUnitInfo.Label (settings.Unit));
@@ -196,8 +187,7 @@ namespace RuhsatHesap.Acad.Commands
                             : "  (AŞIM " + TextUtil.FormatArea (summary.EmsalExcess) + " m²)")
                         : "  (emsal hakkı için RHPARSEL)"));
 
-                foreach (string warning in stats.Warnings) AcadUi.Write (editor, "  ! " + warning);
-                foreach (string problem in result.Problems) AcadUi.Write (editor, "  ! " + problem);
+                foreach (string warning in outcome.Warnings) AcadUi.Write (editor, "  ! " + warning);
                 if (stats.Tagged == 0)
                     AcadUi.Write (editor, "Etiketli nesne bulunamadı. RHETIKET ile alanları etiketleyin.");
                 AcadUi.Write (editor, "Proje verisi çizime kaydedildi. Tablolar için RHTABLOLAR, Excel için RHEXCEL.");

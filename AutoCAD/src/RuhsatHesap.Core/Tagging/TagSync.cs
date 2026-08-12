@@ -365,7 +365,15 @@ namespace RuhsatHesap.Core.Tagging
         /// </summary>
         private static void DetectDuplicateAreas (IReadOnlyList<AreaObservation> observations, TagSyncResult result)
         {
-            const double RelativeTolerance = 0.002; // %0.2
+            // A hatch drawn "pick a point inside the walls" and its boundary
+            // curve are not measured through the same code path, and the wall
+            // thickness the hatch stops at makes them differ by a genuinely
+            // visible amount -- a real reported case had 4,69 and 4,68 m²,
+            // i.e. %0,213 apart, which a %0,2 threshold missed by a hair while
+            // silently doubling the kalem. %1 is still far tighter than two
+            // separately drawn rooms ever land by accident, and this is only
+            // an advisory warning, never a change to the numbers.
+            const double RelativeTolerance = 0.01; // %1
 
             var buckets = new Dictionary<string, List<AreaObservation>> (StringComparer.Ordinal);
             foreach (AreaObservation observation in observations) {
@@ -388,11 +396,12 @@ namespace RuhsatHesap.Core.Tagging
                         double areaB = list[second].Area;
                         double relativeDifference = Math.Abs (areaA - areaB) / Math.Max (areaA, areaB);
                         if (relativeDifference > RelativeTolerance) continue;
-                        result.AddProblem ("<" + list[first].Handle + "> ve <" + list[second].Handle +
-                            "> neredeyse birebir aynı alana sahip (" + TextUtil.FormatArea (areaA) + " ve " +
-                            TextUtil.FormatArea (areaB) + " m²) ve aynı kaleme yazılıyor — aynı bölgeyi hem " +
-                            "taralı (HATCH) hem sınır çizgisiyle (polyline/region) etiketlemiş olabilirsiniz; " +
-                            "ikisi birden sayılırsa alan iki katına çıkar. Yalnız birini etiketleyin.");
+                        result.AddProblem ("ÇİFT ETİKET: <" + list[first].Handle + "> ve <" + list[second].Handle +
+                            "> neredeyse aynı alana sahip (" + TextUtil.FormatArea (areaA) + " ve " +
+                            TextUtil.FormatArea (areaB) + " m²) ve aynı kaleme yazılıyor; bu kalem " +
+                            TextUtil.FormatArea (areaA + areaB) + " m² olarak hesaplanır. Aynı bölgeyi hem " +
+                            "taralı (HATCH) hem sınır çizgisiyle (polyline/region) etiketlemiş olabilirsiniz — " +
+                            "RHSOR ile iki nesneyi bulup yalnız birinde etiket bırakın.");
                     }
                 }
             }

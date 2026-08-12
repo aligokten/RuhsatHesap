@@ -47,6 +47,17 @@ namespace RuhsatHesap.Acad.Ui
             TextAlign = ContentAlignment.MiddleLeft
         };
 
+        /// <summary>
+        /// Son taramanın uyarıları. Kept visible in the panel because a çift
+        /// etiket uyarısı silently doubles a kalem, and a user who scans from
+        /// this button would otherwise never see the command line it used to
+        /// be printed to.
+        /// </summary>
+        private readonly ListBox _warnings = new ListBox {
+            Dock = DockStyle.Bottom, Height = 78, Visible = false,
+            HorizontalScrollbar = true, IntegralHeight = false, ForeColor = Color.Firebrick
+        };
+
         public RuhsatPanelControl ()
         {
             BuildUi ();
@@ -68,7 +79,16 @@ namespace RuhsatHesap.Acad.Ui
             tabs.TabPages.Add (BuildUnitTab ());
             tabs.TabPages.Add (BuildFloorTab ());
 
+            // Double-clicking a warning copies it, so a handle like <2A3> can
+            // be pasted straight into RHSOR.
+            _warnings.DoubleClick += (sender, args) => {
+                if (_warnings.SelectedItem != null)
+                    Clipboard.SetText (_warnings.SelectedItem.ToString ());
+            };
+            new ToolTip ().SetToolTip (_warnings, "Son taramanın uyarıları. Çift tıklayarak kopyalayabilirsiniz.");
+
             Controls.Add (tabs);
+            Controls.Add (_warnings);
             Controls.Add (_status);
             Controls.Add (BuildToolbar ());
         }
@@ -81,7 +101,7 @@ namespace RuhsatHesap.Acad.Ui
             };
             bar.Controls.Add (NewButton ("Yenile", "Çizimdeki veriyi forma yükler", (sender, args) => LoadFromDrawing ()));
             bar.Controls.Add (NewButton ("Kaydet", "Formdaki veriyi çizime yazar", (sender, args) => SaveToDrawing (true)));
-            bar.Controls.Add (NewButton ("Çizimi Tara", "RHTARA — etiketli alanları okur", (sender, args) => RunCommand ("RHTARA")));
+            bar.Controls.Add (NewButton ("Çizimi Tara", "RHTARA — etiketli alanları okur", (sender, args) => ScanDrawing ()));
             bar.Controls.Add (NewButton ("Tabloları Çiz", "RHTABLOLAR", (sender, args) => RunCommand ("RHTABLOLAR")));
             bar.Controls.Add (NewButton ("Excel", "RHEXCEL", (sender, args) => RunCommand ("RHEXCEL")));
             bar.Controls.Add (NewButton ("JSON Kaydet", "RHJSONKAYDET", (sender, args) => RunCommand ("RHJSONKAYDET")));
@@ -289,12 +309,47 @@ namespace RuhsatHesap.Acad.Ui
             }
             SaveToDrawing (false);
             document.SendStringToExecute (command + " ", true, false, true);
-            // RHTARA'nın "aynı alana sahip", "otomatik çıkarıldı" gibi tanı
-            // uyarıları yalnızca AutoCAD komut satırına yazılır -- panel bu
-            // asenkron komutun çıktısını okuyamaz, bu yüzden kullanıcıyı
-            // oraya yönlendiriyoruz.
-            SetStatus (command + " çalıştırıldı. Sayısal sonuç için Yenile'ye, " +
-                "uyarılar için AutoCAD komut satırına (F2) bakın.");
+            SetStatus (command + " çalıştırıldı. Sonucu görmek için Yenile'ye basın.");
+        }
+
+        /// <summary>
+        /// Runs the çizim taraması here rather than queueing RHTARA, so the
+        /// scan's warnings can be shown in the panel. Queued commands run
+        /// asynchronously and write only to the command line, which is how a
+        /// çift etiket uyarısı could previously go unnoticed while it doubled
+        /// a kalem.
+        /// </summary>
+        private void ScanDrawing ()
+        {
+            Document document = AcadApp.DocumentManager.MdiActiveDocument;
+            if (document == null) {
+                SetStatus ("Açık çizim yok.");
+                return;
+            }
+            try {
+                SaveToDrawing (false);
+                ScanOutcome outcome = ScanRunner.Run (document);
+                _project = outcome.Project;
+                FillFormFromProject ();
+                ShowWarnings (outcome.Warnings);
+
+                string summary = "Tarama tamam: " + outcome.Stats.Tagged + " etiketli nesne, " +
+                    outcome.Result.Recognized + " alan okundu";
+                SetStatus (outcome.Warnings.Count > 0
+                    ? summary + " — " + outcome.Warnings.Count + " UYARI (aşağıda)."
+                    : summary + ".");
+            } catch (System.Exception exception) {
+                SetStatus ("Tarama başarısız: " + exception.Message);
+            }
+        }
+
+        private void ShowWarnings (IReadOnlyList<string> warnings)
+        {
+            _warnings.BeginUpdate ();
+            _warnings.Items.Clear ();
+            foreach (string warning in warnings) _warnings.Items.Add ("! " + warning);
+            _warnings.EndUpdate ();
+            _warnings.Visible = warnings.Count > 0;
         }
 
         /// <summary>
