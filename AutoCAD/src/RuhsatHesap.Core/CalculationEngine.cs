@@ -15,8 +15,11 @@ namespace RuhsatHesap.Core
         public double EmsalOutsideTotal;       // Emsal dışı alan toplamı
         public double ConstructionArea;        // Yapı inşaat alanı
         public double RetainingWallArea;
+        public double ExtraStructureArea;      // Foseptik, trafo, su deposu vb.
         public double ConstructionGrandTotal;
         public int RequiredTrees;
+        public double GardenArea;              // Parsel - yapı oturum alanı (ağaç hesabı tabanı)
+        public double RawParkingSpaces;        // Yuvarlanmadan önceki toplam otopark payı
         public int RequiredParkingSpaces;
         public int UnitCount;
 
@@ -72,12 +75,14 @@ namespace RuhsatHesap.Core
             }
 
             foreach (RetainingWall wall in project.RetainingWalls) result.RetainingWallArea += wall.Area;
+            foreach (ExtraStructure structure in project.ExtraStructures) result.ExtraStructureArea += structure.Area;
 
             result.EmsalExcess = Math.Max (0.0, result.CalculatedEmsal - result.MaxEmsal);
             result.EmsalBalance = Math.Max (0.0, result.MaxEmsal - result.CalculatedEmsal);
-            result.ConstructionGrandTotal = result.ConstructionArea + result.RetainingWallArea;
-            double gardenArea = Math.Max (0.0, project.Parcel.ParcelArea - project.Parcel.BuildingFootprint);
-            result.RequiredTrees = project.Parcel.ParcelArea > 0.0 ? (int) Math.Ceiling (gardenArea / 30.0) : 0;
+            result.ConstructionGrandTotal = result.ConstructionArea + result.RetainingWallArea + result.ExtraStructureArea;
+            result.GardenArea = Math.Max (0.0, project.Parcel.ParcelArea - project.Parcel.BuildingFootprint);
+            result.RequiredTrees = project.Parcel.ParcelArea > 0.0 ? (int) Math.Ceiling (result.GardenArea / 30.0) : 0;
+            result.RawParkingSpaces = rawParking;
             result.RequiredParkingSpaces = (int) Math.Ceiling (rawParking);
             return result;
         }

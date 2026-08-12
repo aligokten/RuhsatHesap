@@ -158,6 +158,7 @@ değerleri yeniler, elle girdiğiniz kalemlere dokunmaz.
 | `RHINSAATALANI` | İnşaat alanı: satırlar kat, sütunlar blok |
 | `RHIRTIFAK` | Kat irtifakı tablosu |
 | `RHOZET` | Parsel, TAKS/KAKS kontrolleri, ağaç, otopark özeti |
+| `RHOTOPARKAGAC` | Otopark ve ağaç hesabı — yönetmelik aralıkları ve bağımsız bölüm bazında açıklamalı |
 | `RHTABLOLAR` | Yukarıdaki tabloların tamamı, alt alta |
 
 Tablolar `RH-TABLO` katmanına, seçtiğiniz noktadan başlayarak yerleştirilir ve

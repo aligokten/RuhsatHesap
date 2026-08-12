@@ -192,6 +192,24 @@ namespace RuhsatHesap.Core
         }
 
         /// <summary>
+        /// Folds a floor name down to a comparison key: same normalization as
+        /// <see cref="Normalize"/>, with every whitespace character removed
+        /// entirely rather than just collapsed. Spacing around a kat name
+        /// carries no meaning, but its presence or absence is exactly the kind
+        /// of typo that splits one floor into two: "1.KAT", "1. Kat" and
+        /// "1 . KAT" must all resolve to the same row, and a missing space is
+        /// not a "run of whitespace" that collapsing alone would catch.
+        /// </summary>
+        public static string NormalizeFloorKey (string value)
+        {
+            string normalized = Normalize (value);
+            var builder = new StringBuilder (normalized.Length);
+            foreach (char character in normalized)
+                if (!char.IsWhiteSpace (character)) builder.Append (character);
+            return builder.ToString ();
+        }
+
+        /// <summary>
         /// Turns an area-column key into the label used in reports. Mirrors
         /// ReportExport.cpp's FriendlyName so the AutoCAD tables, the Excel
         /// workbook and the Archicad add-on all title the same column

@@ -29,6 +29,10 @@ namespace RuhsatHesap.Core.Tagging
         ParcelBoundary,
         BuildingFootprint,
         RetainingWall,
+        /// <summary>Site-level construction item that is not istinat duvarı --
+        /// foseptik, trafo, su deposu binası vb. Adds straight into the Yapı
+        /// İnşaat Alanı total; needs neither BLOK nor KAT.</summary>
+        ExtraStructure,
         /// <summary>Kat sınırı çerçevesi: içine düşen etiketli polylineların
         /// katını belirler, kendi alanı hesaba girmez.</summary>
         FloorFrame,
@@ -60,7 +64,8 @@ namespace RuhsatHesap.Core.Tagging
 
         public bool IsUnitArea => IsUnitAreaKind (Kind);
         public bool NeedsFloor => Kind != AreaKind.Common && Kind != AreaKind.ParcelBoundary &&
-                                  Kind != AreaKind.BuildingFootprint && Kind != AreaKind.RetainingWall;
+                                  Kind != AreaKind.BuildingFootprint && Kind != AreaKind.RetainingWall &&
+                                  Kind != AreaKind.ExtraStructure;
         /// <summary>
         /// Parsel-level items belong to the whole project, and TIP=ORTAK is a
         /// project-wide total, so those carry no BLOK. Everything else is
@@ -68,7 +73,7 @@ namespace RuhsatHesap.Core.Tagging
         /// </summary>
         public bool NeedsBlock => Kind != AreaKind.ParcelBoundary && Kind != AreaKind.BuildingFootprint &&
                                   Kind != AreaKind.RetainingWall && Kind != AreaKind.FloorFrame &&
-                                  Kind != AreaKind.Common;
+                                  Kind != AreaKind.Common && Kind != AreaKind.ExtraStructure;
 
         public static bool IsUnitAreaKind (AreaKind kind) =>
             kind == AreaKind.Net || kind == AreaKind.Gross || kind == AreaKind.ExtensionNet ||
@@ -78,7 +83,7 @@ namespace RuhsatHesap.Core.Tagging
         public static readonly string[] ReservedTypes = {
             "NET", "BRUT", "EKLENTI_NET", "EKLENTI_BRUT", "BALKON", "ORTAK",
             "MERDIVEN", "HOL", "ASANSOR", "SACAK", "SIGINAK", "EMSAL", "EMSAL_DISI",
-            "PARSEL", "OTURUM", "ISTINAT", "KAT_SINIRI"
+            "PARSEL", "OTURUM", "ISTINAT", "EK_YAPI", "KAT_SINIRI"
         };
 
         /// <summary>TIP values that HESAP=EMSAL may redirect.</summary>
@@ -113,6 +118,10 @@ namespace RuhsatHesap.Core.Tagging
                 case "TAKS": return AreaKind.BuildingFootprint;
                 case "ISTINAT":
                 case "ISTINAT_DUVARI": return AreaKind.RetainingWall;
+                case "EK_YAPI":
+                case "EKYAPI":
+                case "EKSTRA":
+                case "EKSTRA_YAPI": return AreaKind.ExtraStructure;
                 case "KAT_SINIRI":
                 case "KATSINIRI":
                 case "KAT_CERCEVESI": return AreaKind.FloorFrame;
@@ -231,6 +240,7 @@ namespace RuhsatHesap.Core.Tagging
                 case AreaKind.ParcelBoundary: return "PARSEL";
                 case AreaKind.BuildingFootprint: return "OTURUM";
                 case AreaKind.RetainingWall: return "ISTINAT";
+                case AreaKind.ExtraStructure: return "EK_YAPI";
                 case AreaKind.FloorFrame: return "KAT_SINIRI";
                 default: return string.Empty;
             }
@@ -257,6 +267,7 @@ namespace RuhsatHesap.Core.Tagging
                 case AreaKind.ParcelBoundary: return "Parsel sınırı";
                 case AreaKind.BuildingFootprint: return "Yapı oturum alanı";
                 case AreaKind.RetainingWall: return "İstinat duvarı";
+                case AreaKind.ExtraStructure: return "Ek yapı (foseptik, trafo, su deposu vb.)";
                 case AreaKind.FloorFrame: return "Kat sınırı";
                 case AreaKind.CustomFloorArea: return "Serbest alan kalemi";
                 default: return "Tanımsız";

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using RuhsatHesap.Core;
 using RuhsatHesap.Core.Model;
+using RuhsatHesap.Core.Reporting;
 using RuhsatHesap.Core.Tagging;
 using Xunit;
 
@@ -225,6 +226,71 @@ namespace RuhsatHesap.Core.Tests
 
             Assert.Equal (new[] { "1. BODRUM", "ZEMİN KAT", "1. KAT" },
                 project.Blocks[0].Floors.Select (floor => floor.Name).ToArray ());
+        }
+
+        [Fact]
+        public void DifferentlyCasedFloorNamesMergeIntoOneRow ()
+        {
+            // Reproduces the reported bug: BRUT etiketleri "1.KAT" olarak,
+            // MERDIVEN etiketi "1. Kat" olarak yazılmıştı -- ikisi de aynı katı
+            // ifade ediyor ve tek satırda toplanmalı.
+            var project = new ProjectData ();
+            TagSyncResult result = TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|BLOK=A|BB=01|KAT=1.KAT|TIP=NET", 60.0, ""),
+                Observation ("RH|BLOK=A|BB=01|KAT=1. Kat|TIP=BRUT", 75.0, ""),
+                Observation ("RH|BLOK=A|KAT=1.  KAT|TIP=MERDIVEN", 12.0, ""),
+                Observation ("RH|BLOK=A|KAT=1.kat|TIP=EMSAL", 200.0, "")
+            });
+
+            FloorRecord floor = Assert.Single (project.Blocks[0].Floors);
+            Assert.Equal (12.0, floor.ConstructionAreas["merdiven"], 2);
+            Assert.Equal (200.0, floor.EmsalArea, 2);
+            Assert.Equal (75.0, project.Blocks[0].UnitGrossOnFloor (floor.Name), 2);
+
+            // Yapı İnşaat Alanı satırı da aynı katı gösterip BB brütünü içerir.
+            ReportTable construction = ReportBuilder.Construction (project);
+            ReportRow dataRow = Assert.Single (construction.Rows.Where (row => row.Kind == RowKind.Data));
+            int grossColumn = construction.Columns.FindIndex (column => column.Header == "BB Brüt Alanı");
+            Assert.Equal (75.0, ReportTable.CellAt (dataRow, grossColumn).Value.Value, 2);
+
+            Assert.Contains (result.Problems, message => message.Contains ("Aynı kat farklı yazılmış"));
+        }
+
+        [Fact]
+        public void ExtraStructureNeedsNoBlockOrFloorAndFeedsConstructionArea ()
+        {
+            var project = new ProjectData ();
+            TagSyncResult result = TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|TIP=EK_YAPI|AD=Foseptik", 8.5, ""),
+                Observation ("RH|TIP=EK_YAPI|AD=Trafo Binası", 6.0, "")
+            });
+
+            Assert.Equal (2, result.ExtraStructures);
+            Assert.Equal (2, project.ExtraStructures.Count);
+            Assert.Equal ("Foseptik", project.ExtraStructures[0].Name);
+            Assert.Equal (8.5, project.ExtraStructures[0].Area, 2);
+
+            CalculationSummary summary = CalculationEngine.Calculate (project);
+            Assert.Equal (14.5, summary.ExtraStructureArea, 2);
+            Assert.Equal (14.5, summary.ConstructionGrandTotal, 2);
+        }
+
+        [Fact]
+        public void RepeatedScanReplacesOnlyItsOwnExtraStructures ()
+        {
+            var project = new ProjectData ();
+            TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|TIP=EK_YAPI|AD=Foseptik", 8.5, "")
+            });
+            project.ExtraStructures.Add (new ExtraStructure { Name = "Elle Eklenen Su Deposu", Area = 5.0 });
+
+            TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|TIP=EK_YAPI|AD=Foseptik", 9.0, "")
+            });
+
+            Assert.Equal (2, project.ExtraStructures.Count);
+            Assert.Equal (9.0, project.ExtraStructures.Single (item => item.Name == "Foseptik").Area, 2);
+            Assert.Equal (5.0, project.ExtraStructures.Single (item => item.Name == "Elle Eklenen Su Deposu").Area, 2);
         }
     }
 }

@@ -44,6 +44,7 @@ namespace RuhsatHesap.Acad.Commands
             editor.WriteMessage ("\n    RHINSAATALANI Kat bazlı inşaat alanı tablosu");
             editor.WriteMessage ("\n    RHIRTIFAK     Kat irtifakı tablosu");
             editor.WriteMessage ("\n    RHOZET        Ruhsat hesap özeti");
+            editor.WriteMessage ("\n    RHOTOPARKAGAC Otopark ve ağaç hesabı, yönetmelik aralıkları ve BB bazında açıklamalı");
             editor.WriteMessage ("\n    RHTABLOLAR    Bütün tabloları alt alta çizer");
             editor.WriteMessage ("\n  Aktarım");
             editor.WriteMessage ("\n    RHEXCEL       Formatlı .xlsx çalışma kitabı üretir");

@@ -249,6 +249,13 @@ namespace RuhsatHesap.Acad.Commands
                 return tag;
             }
 
+            if (tag.Kind == AreaKind.ExtraStructure) {
+                string structureName = AcadUi.AskString (editor, "Ek yapı adı (Foseptik, Trafo, Su Deposu ...)", defaults.Label);
+                if (structureName == null) return null;
+                tag.Label = structureName;
+                return tag;
+            }
+
             if (tag.Kind != AreaKind.FloorFrame) {
                 string blockName = AcadUi.AskString (editor, "BLOK",
                     defaults.BlockName.Length > 0 ? defaults.BlockName : settings.ActiveBlock);

@@ -50,6 +50,7 @@ namespace RuhsatHesap.Core.Tagging
         public double CommonArea;
         public double ShelterArea;
         public int RetainingWalls;
+        public int ExtraStructures;
         public readonly List<string> Problems = new List<string> ();
 
         /// <summary>Recognised area per TIP, so the scan report shows at a
@@ -88,6 +89,7 @@ namespace RuhsatHesap.Core.Tagging
     {
         private const double Epsilon = 1e-9;
         private const string CadWallsField = "cadRetainingWalls";
+        private const string CadExtraStructuresField = "cadExtraStructures";
 
         public static TagSyncResult Sync (ProjectData project, IReadOnlyList<AreaObservation> observations)
         {
@@ -100,6 +102,7 @@ namespace RuhsatHesap.Core.Tagging
             var unitAggregates = new Dictionary<string, UnitAggregate> (StringComparer.Ordinal);
             var floorAggregates = new Dictionary<string, FloorAggregate> (StringComparer.Ordinal);
             var cadWalls = new List<RetainingWall> ();
+            var cadExtraStructures = new List<ExtraStructure> ();
             double commonArea = 0.0, shelterArea = 0.0, parcelArea = 0.0, footprintArea = 0.0;
             bool hasParcel = false, hasFootprint = false;
 
@@ -140,6 +143,14 @@ namespace RuhsatHesap.Core.Tagging
                     case AreaKind.RetainingWall:
                         cadWalls.Add (new RetainingWall {
                             Name = tag.Label.Length > 0 ? tag.Label : "İstinat Duvarı " + (cadWalls.Count + 1),
+                            Area = observation.Area
+                        });
+                        result.Recognized++;
+                        result.Tally (typeName, observation.Area);
+                        continue;
+                    case AreaKind.ExtraStructure:
+                        cadExtraStructures.Add (new ExtraStructure {
+                            Name = tag.Label.Length > 0 ? tag.Label : "Ek Yapı " + (cadExtraStructures.Count + 1),
                             Area = observation.Area
                         });
                         result.Recognized++;
@@ -237,15 +248,50 @@ namespace RuhsatHesap.Core.Tagging
                 }
             }
 
+            WarnAboutFloorSpellingVariants (floorAggregates.Values, unitAggregates.Values, result);
             ApplyParcelValues (project, hasParcel, parcelArea, hasFootprint, footprintArea, result);
             ApplyCommonAndShelter (project, commonArea, shelterArea, result);
             ApplyRetainingWalls (project, cadWalls, result);
+            ApplyExtraStructures (project, cadExtraStructures, result);
             ApplyFloorAreas (project, floorAggregates.Values, result);
             ApplyUnits (project, unitAggregates.Values, result);
 
             project.SortUnits ();
             project.SortFloors ();
             return result;
+        }
+
+        /// <summary>
+        /// Different KAT= spellings for the same kat now merge into one floor
+        /// row (see BlockRecord.FindFloor), which fixes the split-table bug,
+        /// but the drawing itself is still inconsistent. Flagging it here means
+        /// the next tarama tells the user exactly which two spellings to unify,
+        /// instead of leaving them to notice a merged row later.
+        /// </summary>
+        private static void WarnAboutFloorSpellingVariants (IEnumerable<FloorAggregate> floorAggregates,
+            IEnumerable<UnitAggregate> unitAggregates, TagSyncResult result)
+        {
+            var spellingsByKey = new Dictionary<string, HashSet<string>> (StringComparer.Ordinal);
+            void Note (string blockName, string floorName)
+            {
+                if (floorName.Length == 0) return;
+                string dictKey = blockName + "|" + TextUtil.NormalizeFloorKey (floorName);
+                if (!spellingsByKey.TryGetValue (dictKey, out HashSet<string> spellings)) {
+                    spellings = new HashSet<string> (StringComparer.Ordinal);
+                    spellingsByKey[dictKey] = spellings;
+                }
+                spellings.Add (floorName);
+            }
+
+            foreach (FloorAggregate aggregate in floorAggregates) Note (aggregate.BlockName, aggregate.FloorName);
+            foreach (UnitAggregate aggregate in unitAggregates) if (aggregate.HasFloor) Note (aggregate.BlockName, aggregate.Floor);
+
+            foreach (HashSet<string> spellings in spellingsByKey.Values) {
+                if (spellings.Count <= 1) continue;
+                result.AddProblem ("Aynı kat farklı yazılmış ve birleştirildi: " +
+                    string.Join (" / ", spellings.OrderBy (value => value, StringComparer.Ordinal)) +
+                    " — tek bir yazım kullanmanız önerilir.");
+            }
         }
 
         /// <summary>Canonical TIP name used as the tally key.</summary>
@@ -418,6 +464,26 @@ namespace RuhsatHesap.Core.Tagging
             result.RetainingWalls = cadWalls.Count;
         }
 
+        private static void ApplyExtraStructures (ProjectData project, List<ExtraStructure> cadExtraStructures, TagSyncResult result)
+        {
+            JsonValue previous = project.AuxiliaryData[CadExtraStructuresField];
+            var owned = new HashSet<string> (StringComparer.Ordinal);
+            if (previous.IsArray)
+                foreach (JsonValue item in previous.Items)
+                    if (item.IsString) owned.Add (item.StringValue);
+
+            if (owned.Count > 0)
+                project.ExtraStructures.RemoveAll (structure => owned.Contains (structure.Name));
+
+            JsonValue names = JsonValue.NewArray ();
+            foreach (ExtraStructure structure in cadExtraStructures) {
+                project.ExtraStructures.Add (structure);
+                names.Add (JsonValue.String (structure.Name));
+            }
+            project.AuxiliaryData[CadExtraStructuresField] = names;
+            result.ExtraStructures = cadExtraStructures.Count;
+        }
+
         private static void ApplyFloorAreas (ProjectData project, IEnumerable<FloorAggregate> aggregates, TagSyncResult result)
         {
             foreach (FloorAggregate aggregate in aggregates.OrderBy (item => item.BlockName, StringComparer.Ordinal)
@@ -427,21 +493,25 @@ namespace RuhsatHesap.Core.Tagging
                 foreach (KeyValuePair<string, double> entry in aggregate.ConstructionAreas) {
                     double value = Round2 (entry.Value);
                     Accumulate (floor.ConstructionAreas, entry.Key, value);
-                    floor.CadConstructionAreas[entry.Key] = value;
+                    // Accumulate rather than assign: two differently-cased KAT=
+                    // values for the same conceptual floor now resolve to the
+                    // same FloorRecord (see BlockRecord.FindFloor), so more than
+                    // one FloorAggregate can legitimately land on it.
+                    Accumulate (floor.CadConstructionAreas, entry.Key, value);
                     EnsureAreaKeyColumn (project, "constructionKeys", entry.Key);
                 }
                 foreach (KeyValuePair<string, double> entry in aggregate.ThirtyPercentAreas) {
                     double value = Round2 (entry.Value);
                     Accumulate (floor.ThirtyPercentAreas, entry.Key, value);
-                    floor.CadThirtyPercentAreas[entry.Key] = value;
+                    Accumulate (floor.CadThirtyPercentAreas, entry.Key, value);
                     EnsureAreaKeyColumn (project, "thirtyPercentKeys", entry.Key);
                 }
                 double emsal = Round2 (aggregate.EmsalArea);
                 double emsalOutside = Round2 (aggregate.EmsalOutsideArea);
                 floor.EmsalArea += emsal;
                 floor.EmsalOutsideArea += emsalOutside;
-                floor.CadEmsalArea = emsal;
-                floor.CadEmsalOutsideArea = emsalOutside;
+                floor.CadEmsalArea += emsal;
+                floor.CadEmsalOutsideArea += emsalOutside;
                 result.UpdatedFloorAreas++;
             }
         }

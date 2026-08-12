@@ -95,9 +95,18 @@ besler.
 | `PARSEL` | `PARSEL_SINIRI` | Parsel alanı (TAKS/KAKS hesabının tabanı) |
 | `OTURUM` | `TABAN`, `TAKS` | Yapı oturum alanı (TAKS kontrolü, ağaç hesabı) |
 | `ISTINAT` | `ISTINAT_DUVARI` | İstinat duvarı alanı — adı `AD=` ile verilir |
+| `EK_YAPI` | `EKYAPI`, `EKSTRA`, `EKSTRA_YAPI` | Foseptik, trafo, su deposu binası gibi bloğa bağlı olmayan yapılar — adı `AD=` ile verilir, Yapı İnşaat Alanı toplamına eklenir |
 
 Bu kalemler çizimde varsa `RHPARSEL` ile elle girilen değerlerin yerine geçer;
 çizimde yoksa elle girilen değerler korunur.
+
+```
+RH|TIP=EK_YAPI|AD=Foseptik
+```
+
+`EK_YAPI` istinat duvarından farklıdır: istinat duvarı ayrı raporlanır, `EK_YAPI`
+ise doğrudan Yapı İnşaat Alanı'nın parçasıdır. İkisi de "Diğer Hesaplar" /
+`RHTABLOLAR` çıktısında kendi tablosunda listelenir.
 
 ### Kat sınırı
 
@@ -147,6 +156,13 @@ Kat adları isimlerinden sıralanır:
 ```
 
 Tanınmayan adlar tabloların sonunda, ilk görüldükleri sırayla listelenir.
+
+`KAT=` değeri büyük/küçük harf ve boşluk farkına bakılmadan karşılaştırılır:
+`KAT=1.KAT`, `KAT=1. Kat` ve `KAT=1.  KAT` aynı kat sayılır ve tek satırda
+birleştirilir. Aynı katın etiketleri arasında yine de tek bir yazım kullanmanız
+önerilir; farklı yazımlar birleştiğinde `RHTARA` bunu komut satırında bildirir
+("Aynı kat farklı yazılmış ve birleştirildi: ..."), böylece hangi iki yazımı
+tekleştirmeniz gerektiğini görürsünüz.
 
 ### Dubleks bağımsız bölümler
 
@@ -209,3 +225,5 @@ parçalar `-`, anahtar/değer ise **ilk** `_` ile ayrılır. Böylece
 | `BLOK eksik` | Kat ve bağımsız bölüm kalemlerinde `BLOK=` zorunludur |
 | Alanlar 10.000 kat büyük | Çizim santimetre; `RHBIRIM` ile birimi düzeltin |
 | Aynı alan iki kez sayıldı | Hem daire brütü hem de mahaller `TIP=BRUT` etiketlenmiş; mahaller `TIP=NET` olmalı |
+| Bir kattaki BRÜT/EMSAL tabloya işlemiyor | O kattaki etiketlerden biri `KAT=` değerini farklı yazmış (`1.KAT` / `1. Kat`); `RHTARA` çıktısındaki "Aynı kat farklı yazılmış" uyarısını kontrol edin, tüm etiketlerde aynı yazımı kullanın |
+| Foseptik/trafo gibi yapılar inşaat alanına eklenmiyor | `TIP=EK_YAPI` yerine tanınmayan başka bir TIP veya `BLOK=`/`KAT=` ile etiketlenmiş; `EK_YAPI` blok/kat gerektirmez, `AD=` ile adlandırılır |

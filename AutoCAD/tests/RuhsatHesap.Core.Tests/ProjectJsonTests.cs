@@ -129,6 +129,41 @@ namespace RuhsatHesap.Core.Tests
         }
 
         [Theory]
+        [InlineData ("1.KAT", "1. Kat")]
+        [InlineData ("1.KAT", "1.  KAT")]
+        [InlineData ("1.KAT", "1 . KAT")]
+        [InlineData ("1.kat", "1.KAT")]
+        [InlineData ("ZEMİN KAT", "zemin kat")]
+        [InlineData ("ZEMİN KAT", "Zemin   Kat")]
+        public void FloorNameSpellingVariantsShareTheSameKey (string left, string right)
+        {
+            // Bu tam olarak raporlanan hatanın sebebiydi: BRÜT etiketleri
+            // "1.KAT" olarak, MERDIVEN etiketi "1. Kat" olarak yazılmış ve iki
+            // ayrı satıra bölünmüştü.
+            Assert.Equal (TextUtil.NormalizeFloorKey (left), TextUtil.NormalizeFloorKey (right));
+        }
+
+        [Fact]
+        public void DifferentFloorsKeepDifferentKeys ()
+        {
+            Assert.NotEqual (TextUtil.NormalizeFloorKey ("1. KAT"), TextUtil.NormalizeFloorKey ("2. KAT"));
+            Assert.NotEqual (TextUtil.NormalizeFloorKey ("ZEMİN KAT"), TextUtil.NormalizeFloorKey ("1. KAT"));
+        }
+
+        [Fact]
+        public void ExtraStructuresRoundTripThroughJson ()
+        {
+            var project = new ProjectData ();
+            project.ExtraStructures.Add (new ExtraStructure { Name = "Foseptik", Area = 8.5 });
+
+            ProjectData restored = ProjectJson.Deserialize (ProjectJson.Serialize (project));
+
+            ExtraStructure structure = Assert.Single (restored.ExtraStructures);
+            Assert.Equal ("Foseptik", structure.Name);
+            Assert.Equal (8.5, structure.Area, 2);
+        }
+
+        [Theory]
         [InlineData ("1", "2")]
         [InlineData ("2", "10")]
         [InlineData ("9", "10")]

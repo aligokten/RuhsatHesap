@@ -85,6 +85,9 @@ namespace RuhsatHesap.Acad.Commands
         [CommandMethod ("RHOZET", CommandFlags.Modal)]
         public void SummaryTable () => ProjectTable (project => ReportBuilder.Summary (project));
 
+        [CommandMethod ("RHOTOPARKAGAC", CommandFlags.Modal)]
+        public void ParkingAndTreesTable () => ProjectTable (project => ReportBuilder.ParkingAndTrees (project));
+
         [CommandMethod ("RHTABLOLAR", CommandFlags.Modal)]
         public void AllTables ()
         {

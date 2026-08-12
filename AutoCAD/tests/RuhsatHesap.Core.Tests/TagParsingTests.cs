@@ -75,6 +75,25 @@ namespace RuhsatHesap.Core.Tests
             Assert.True (wall.Valid);
             Assert.Equal (AreaKind.RetainingWall, wall.Kind);
             Assert.Equal ("Doğu Duvarı", wall.Label);
+
+            RuhsatTag structure = RuhsatTag.Parse ("RH|TIP=EK_YAPI|AD=Foseptik");
+            Assert.True (structure.Valid);
+            Assert.Equal (AreaKind.ExtraStructure, structure.Kind);
+            Assert.Equal ("Foseptik", structure.Label);
+            Assert.False (structure.NeedsBlock);
+            Assert.False (structure.NeedsFloor);
+        }
+
+        [Theory]
+        [InlineData ("EK_YAPI")]
+        [InlineData ("EKYAPI")]
+        [InlineData ("EKSTRA")]
+        [InlineData ("EKSTRA_YAPI")]
+        public void ExtraStructureAliasesAllParse (string typeSpelling)
+        {
+            RuhsatTag tag = RuhsatTag.Parse ("RH|TIP=" + typeSpelling + "|AD=Trafo");
+            Assert.Equal (AreaKind.ExtraStructure, tag.Kind);
+            Assert.True (tag.Valid);
         }
 
         [Fact]

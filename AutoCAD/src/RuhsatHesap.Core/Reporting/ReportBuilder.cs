@@ -330,10 +330,17 @@ namespace RuhsatHesap.Core.Reporting
             foreach (BlockRecord block in project.Blocks) table.Column (block.Name + " BLOK", 16, true);
             table.Column ("TOPLAM", 16, true);
 
+            // Different blocks may spell the same kat slightly differently
+            // ("1.KAT" vs "1. Kat"); collapse those onto one row the same way
+            // BlockRecord.FindFloor does, or the row is silently duplicated.
             var floorNames = new List<string> ();
-            foreach (BlockRecord block in project.Blocks)
-                foreach (FloorRecord floor in block.Floors)
-                    if (!floorNames.Contains (floor.Name)) floorNames.Add (floor.Name);
+            var seenFloorKeys = new HashSet<string> (StringComparer.Ordinal);
+            foreach (BlockRecord block in project.Blocks) {
+                foreach (FloorRecord floor in block.Floors) {
+                    string key = TextUtil.NormalizeFloorKey (floor.Name);
+                    if (seenFloorKeys.Add (key)) floorNames.Add (floor.Name);
+                }
+            }
             floorNames = floorNames.OrderBy (FloorOrder.Rank).ToList ();
 
             foreach (string floorName in floorNames) {
@@ -362,10 +369,18 @@ namespace RuhsatHesap.Core.Reporting
                 table.AddRow (RowKind.Section, wallCells.ToArray ());
             }
 
+            double extraStructureTotal = project.ExtraStructures.Sum (structure => structure.Area);
+            if (extraStructureTotal > 0.0) {
+                var extraCells = new List<ReportCell> { ReportCell.OfText ("Ek Yapılar (Foseptik vb.)") };
+                foreach (BlockRecord unusedBlock in project.Blocks) extraCells.Add (ReportCell.OfText ("—"));
+                extraCells.Add (ReportCell.OfNumber (extraStructureTotal));
+                table.AddRow (RowKind.Section, extraCells.ToArray ());
+            }
+
             var totals = new List<ReportCell> { ReportCell.OfText ("GENEL TOPLAM") };
             for (int column = 1; column < table.ColumnCount; column++) {
                 double total = table.ColumnSum (column);
-                if (column == table.ColumnCount - 1) total += retainingTotal;
+                if (column == table.ColumnCount - 1) total += retainingTotal + extraStructureTotal;
                 totals.Add (ReportCell.OfNumber (total));
             }
             table.AddRow (RowKind.GrandTotal, totals.ToArray ());
@@ -378,6 +393,21 @@ namespace RuhsatHesap.Core.Reporting
             table.Column ("İstinat Duvarı", 28).Column ("Alan (m²)", 16, true);
             foreach (RetainingWall wall in project.RetainingWalls)
                 table.AddRow (RowKind.Data, ReportCell.OfText (wall.Name), ReportCell.OfNumber (wall.Area));
+            table.AddRow (RowKind.GrandTotal, ReportCell.OfText ("TOPLAM"), ReportCell.OfNumber (table.ColumnSum (1)));
+            return table;
+        }
+
+        /// <summary>
+        /// Site-level items outside istinat duvarı -- foseptik, trafo, su
+        /// deposu binası vb. -- tagged with TIP=EK_YAPI. Their total feeds
+        /// Yapı İnşaat Alanı the same way İstinat Duvarı does.
+        /// </summary>
+        public static ReportTable ExtraStructures (ProjectData project)
+        {
+            var table = new ReportTable ("EK YAPILAR (FOSEPTİK, TRAFO, SU DEPOSU VB.)", "Ek Yapılar");
+            table.Column ("Ek Yapı", 28).Column ("Alan (m²)", 16, true);
+            foreach (ExtraStructure structure in project.ExtraStructures)
+                table.AddRow (RowKind.Data, ReportCell.OfText (structure.Name), ReportCell.OfNumber (structure.Area));
             table.AddRow (RowKind.GrandTotal, ReportCell.OfText ("TOPLAM"), ReportCell.OfNumber (table.ColumnSum (1)));
             return table;
         }
@@ -416,6 +446,7 @@ namespace RuhsatHesap.Core.Reporting
             table.AddRow (RowKind.Data, ReportCell.OfText ("Toplam Ortak Alan (m²)"), ReportCell.OfNumber (project.CommonArea));
             table.AddRow (RowKind.Data, ReportCell.OfText ("Yapı İnşaat Alanı (m²)"), ReportCell.OfNumber (summary.ConstructionArea));
             table.AddRow (RowKind.Data, ReportCell.OfText ("İstinat Duvarı (m²)"), ReportCell.OfNumber (summary.RetainingWallArea));
+            table.AddRow (RowKind.Data, ReportCell.OfText ("Ek Yapılar (Foseptik vb.) (m²)"), ReportCell.OfNumber (summary.ExtraStructureArea));
             table.AddRow (RowKind.GrandTotal, ReportCell.OfText ("TOPLAM İNŞAAT ALANI (m²)"), ReportCell.OfNumber (summary.ConstructionGrandTotal));
 
             table.AddSection ("DİĞER HESAPLAR");
@@ -427,6 +458,80 @@ namespace RuhsatHesap.Core.Reporting
                 ? "SAĞLANDI"
                 : "EKSİK: " + (summary.RequiredParkingSpaces - project.ProvidedParkingSpaces));
             return table;
+        }
+
+        /// <summary>
+        /// Otopark ve ağaç sayısı yalnızca tek bir sayı olarak verildiğinde
+        /// nereden geldiği belli olmuyor. Bu tablo her ikisini de yönetmelik
+        /// aralıklarını ve bağımsız bölüm bazlı payları göstererek açıklar.
+        /// </summary>
+        public static ReportTable ParkingAndTrees (ProjectData project)
+        {
+            CalculationSummary summary = CalculationEngine.Calculate (project);
+            var table = new ReportTable ("OTOPARK VE AĞAÇ HESABI (AÇIKLAMALI)", "Otopark ve Ağaç");
+            table.Column ("Blok", 9).Column ("BB No", 9).Column ("Brüt Alan (m²)", 15, true)
+                 .Column ("Uygulanan Aralık", 30).Column ("Otopark Payı", 13, true);
+
+            table.AddSection ("AĞAÇ HESABI");
+            table.AddLabelValue (RowKind.Data, "Parsel Alanı (m²)", ReportCell.OfNumber (project.Parcel.ParcelArea));
+            table.AddLabelValue (RowKind.Data, "Yapı Oturum Alanı (m²)", ReportCell.OfNumber (project.Parcel.BuildingFootprint));
+            table.AddLabelValue (RowKind.Data, "Bahçe Alanı (Parsel − Oturum) (m²)", ReportCell.OfNumber (summary.GardenArea));
+            table.AddLabelValue (RowKind.Data, "Hesap Yöntemi",
+                ReportCell.OfText ("Bahçe Alanı ÷ 30 m², sonuç yukarı yuvarlanır"));
+            table.AddLabelValue (RowKind.Data, "İşlem",
+                ReportCell.OfText (TextUtil.FormatArea (summary.GardenArea) + " ÷ 30 = " +
+                    TextUtil.FormatArea (project.Parcel.ParcelArea > 0.0 ? summary.GardenArea / 30.0 : 0.0, 3)));
+            table.AddLabelValue (RowKind.GrandTotal, "Gerekli Ağaç Sayısı", ReportCell.OfInteger (summary.RequiredTrees));
+
+            table.AddSection ("OTOPARK ARALIKLARI (Yönetmelik Esası)");
+            AddParkingBracketRow (table, "0 – 80 m² (80 dahil değil)", "1/3 araç");
+            AddParkingBracketRow (table, "80 – 120 m² (120 dahil değil)", "1/2 araç");
+            AddParkingBracketRow (table, "120 – 180 m² (180 dahil değil)", "1 araç");
+            AddParkingBracketRow (table, "180 m² ve üzeri", "2 araç");
+
+            table.AddSection ("BAĞIMSIZ BÖLÜM BAZINDA OTOPARK HESABI");
+            foreach (BlockRecord block in project.Blocks) {
+                foreach (IndependentUnit unit in block.Units) {
+                    table.AddRow (RowKind.Data,
+                        ReportCell.OfText (block.Name),
+                        ReportCell.OfText (unit.Number),
+                        ReportCell.OfNumber (unit.GrossArea),
+                        ReportCell.OfText (ParkingBracketLabel (unit.GrossArea)),
+                        ReportCell.OfNumber (CalculationEngine.ParkingContribution (unit.GrossArea), 3));
+                }
+            }
+            if (summary.UnitCount == 0)
+                table.AddRow (RowKind.Data, ReportCell.OfText (
+                    "Bağımsız bölüm verisi yok — otopark payı hesaplanamıyor. TIP=NET / TIP=BRUT etiketleyip RHTARA çalıştırın.", 5));
+
+            table.AddLabelValue (RowKind.GrandTotal, "Toplam Otopark Payı (ondalık)",
+                ReportCell.OfNumber (summary.RawParkingSpaces, 3));
+            table.AddLabelValue (RowKind.GrandTotal, "Yukarı Yuvarlanmış (Gerekli Otopark)",
+                ReportCell.OfInteger (summary.RequiredParkingSpaces));
+            table.AddLabelValue (RowKind.Data, "Projede Ayrılan Otopark",
+                ReportCell.OfInteger (project.ProvidedParkingSpaces));
+            table.AddLabelValue (RowKind.GrandTotal, "Otopark Kontrolü",
+                ReportCell.OfText (summary.ParkingOk (project.ProvidedParkingSpaces)
+                    ? "SAĞLANDI"
+                    : "EKSİK: " + (summary.RequiredParkingSpaces - project.ProvidedParkingSpaces) + " araç"));
+            return table;
+        }
+
+        private static void AddParkingBracketRow (ReportTable table, string range, string share)
+        {
+            table.AddRow (RowKind.Data, ReportCell.Empty, ReportCell.Empty, ReportCell.Empty,
+                ReportCell.OfText (range), ReportCell.OfText (share));
+        }
+
+        /// <summary>Which yönetmelik aralığı a unit's brüt alanı falls into,
+        /// shown next to its otopark payı so the number is never bare.</summary>
+        private static string ParkingBracketLabel (double grossArea)
+        {
+            if (grossArea <= 0.0) return "—";
+            if (grossArea < 80.0) return "0–80 m² → 1/3 araç";
+            if (grossArea < 120.0) return "80–120 m² → 1/2 araç";
+            if (grossArea < 180.0) return "120–180 m² → 1 araç";
+            return "180+ m² → 2 araç";
         }
 
         /// <summary>
@@ -468,6 +573,8 @@ namespace RuhsatHesap.Core.Reporting
                 Condominium (project)
             };
             if (project.RetainingWalls.Count > 0) tables.Add (RetainingWalls (project));
+            if (project.ExtraStructures.Count > 0) tables.Add (ExtraStructures (project));
+            tables.Add (ParkingAndTrees (project));
             return tables;
         }
     }

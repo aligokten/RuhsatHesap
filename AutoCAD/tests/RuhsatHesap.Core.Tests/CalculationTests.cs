@@ -107,9 +107,24 @@ namespace RuhsatHesap.Core.Tests
             CalculationSummary summary = CalculationEngine.Calculate (Sample ());
             // 1/3 (75) + 1/2 (110) + 1 (150) + 2 (200) = 3,83 -> 4 araç
             Assert.Equal (4, summary.RequiredParkingSpaces);
+            Assert.Equal (1.0 / 3.0 + 0.5 + 1.0 + 2.0, summary.RawParkingSpaces, 4);
             // (1000 - 400) / 30 = 20 ağaç
             Assert.Equal (20, summary.RequiredTrees);
+            Assert.Equal (600.0, summary.GardenArea, 2);
             Assert.Equal (4, summary.UnitCount);
+        }
+
+        [Fact]
+        public void ExtraStructuresAddIntoTheConstructionGrandTotal ()
+        {
+            ProjectData project = Sample ();
+            project.ExtraStructures.Add (new ExtraStructure { Name = "Foseptik", Area = 8.5 });
+            project.ExtraStructures.Add (new ExtraStructure { Name = "Trafo", Area = 6.0 });
+
+            CalculationSummary summary = CalculationEngine.Calculate (project);
+            Assert.Equal (14.5, summary.ExtraStructureArea, 2);
+            // 563 (yapı inşaat) + 30 (istinat) + 14.5 (ek yapılar)
+            Assert.Equal (607.5, summary.ConstructionGrandTotal, 2);
         }
     }
 }

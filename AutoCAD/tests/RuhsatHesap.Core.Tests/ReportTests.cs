@@ -150,9 +150,49 @@ namespace RuhsatHesap.Core.Tests
         public void AllProjectTablesAreProduced ()
         {
             IReadOnlyList<ReportTable> tables = ReportBuilder.AllProjectTables (Sample ());
-            Assert.Equal (7, tables.Count);   // istinat duvarı da var
+            // istinat duvarı + otopark/ağaç açıklamalı tablosu da var
+            Assert.Equal (8, tables.Count);
             Assert.All (tables, table => Assert.NotEmpty (table.Columns));
             Assert.All (tables, table => Assert.NotEmpty (table.Rows));
+            Assert.Contains (tables, table => table.Title.StartsWith ("OTOPARK VE AĞAÇ"));
+        }
+
+        [Fact]
+        public void ParkingAndTreesTableExplainsTheBrackets ()
+        {
+            ReportTable table = ReportBuilder.ParkingAndTrees (Sample ());
+
+            Assert.Contains (table.Rows, row => row.Kind == RowKind.Section &&
+                row.Cells[0].Text == "AĞAÇ HESABI");
+            Assert.Contains (table.Rows, row => row.Kind == RowKind.Section &&
+                row.Cells[0].Text.Contains ("OTOPARK ARALIKLARI"));
+            Assert.Contains (table.Rows, row => ReportTable.CellAt (row, 3)?.Text == "0 – 80 m² (80 dahil değil)" &&
+                ReportTable.CellAt (row, 4)?.Text == "1/3 araç");
+
+            // Bağımsız bölüm bazında satırlar: 92,40 m² -> 80-120 aralığı, 1/2 araç.
+            ReportRow unitRow = table.Rows.Single (row => row.Kind == RowKind.Data &&
+                ReportTable.CellAt (row, 1)?.Text == "01");
+            Assert.Equal ("80–120 m² → 1/2 araç", ReportTable.CellAt (unitRow, 3).Text);
+            Assert.Equal (0.5, ReportTable.CellAt (unitRow, 4).Value.Value, 3);
+
+            ReportRow treeResult = table.Rows.Single (row => ReportTable.CellAt (row, 0)?.Text == "Gerekli Ağaç Sayısı");
+            Assert.Equal (23.0, ReportTable.CellAt (treeResult, 4).Value.Value, 0);   // (1000-320)/30 = 22.67 -> 23
+        }
+
+        [Fact]
+        public void ExtraStructuresTableTotalsCorrectly ()
+        {
+            ProjectData project = Sample ();
+            project.ExtraStructures.Add (new ExtraStructure { Name = "Foseptik", Area = 8.5 });
+
+            ReportTable table = ReportBuilder.ExtraStructures (project);
+            Assert.Contains (table.Rows, row => row.Kind == RowKind.Data && row.Cells[0].Text == "Foseptik");
+            ReportRow total = table.Rows.Last ();
+            Assert.Equal (8.5, ReportTable.CellAt (total, 1).Value.Value, 2);
+
+            // AllProjectTables yalnız ek yapı varsa bu tabloyu ekler.
+            Assert.Contains (ReportBuilder.AllProjectTables (project),
+                item => item.Title.StartsWith ("EK YAPILAR"));
         }
 
         [Fact]

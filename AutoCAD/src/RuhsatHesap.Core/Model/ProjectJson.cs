@@ -63,6 +63,15 @@ namespace RuhsatHesap.Core.Model
             }
             root["retainingWalls"] = walls;
 
+            JsonValue extraStructures = JsonValue.NewArray ();
+            foreach (ExtraStructure structure in project.ExtraStructures) {
+                JsonValue item = JsonValue.NewObject ();
+                item["name"] = JsonValue.String (structure.Name);
+                item["area"] = JsonValue.Number (structure.Area);
+                extraStructures.Add (item);
+            }
+            root["extraStructures"] = extraStructures;
+
             root["providedParkingSpaces"] = JsonValue.Number (project.ProvidedParkingSpaces);
             root["auxiliaryData"] = project.AuxiliaryData ?? JsonValue.NewObject ();
             return root;
@@ -228,6 +237,12 @@ namespace RuhsatHesap.Core.Model
                 project.RetainingWalls.Add (new RetainingWall {
                     Name = wallJson["name"].AsString (),
                     Area = wallJson["area"].AsDouble ()
+                });
+            }
+            foreach (JsonValue structureJson in root["extraStructures"].Items) {
+                project.ExtraStructures.Add (new ExtraStructure {
+                    Name = structureJson["name"].AsString (),
+                    Area = structureJson["area"].AsDouble ()
                 });
             }
 

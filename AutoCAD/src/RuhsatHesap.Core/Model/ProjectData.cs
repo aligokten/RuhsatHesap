@@ -93,15 +93,40 @@ namespace RuhsatHesap.Core.Model
         public List<FloorRecord> Floors = new List<FloorRecord> ();
         public List<IndependentUnit> Units = new List<IndependentUnit> ();
 
-        public FloorRecord FindFloor (string name) =>
-            Floors.FirstOrDefault (floor => string.Equals (floor.Name, name, StringComparison.Ordinal));
+        /// <summary>
+        /// Matches by <see cref="TextUtil.NormalizeFloorKey"/> rather than an
+        /// exact string, so "1.KAT" and "1. Kat" resolve to the same row
+        /// instead of silently creating two -- one holding the Merdiven area,
+        /// the other the bağımsız bölüm brüt, neither table showing both.
+        /// </summary>
+        public FloorRecord FindFloor (string name)
+        {
+            string key = TextUtil.NormalizeFloorKey (name);
+            return Floors.FirstOrDefault (floor => TextUtil.NormalizeFloorKey (floor.Name) == key);
+        }
 
         /// <summary>Sum of the gross area of every unit sitting on a floor.</summary>
-        public double UnitGrossOnFloor (string floorName) =>
-            Units.Where (unit => string.Equals (unit.Floor, floorName, StringComparison.Ordinal)).Sum (unit => unit.GrossArea);
+        public double UnitGrossOnFloor (string floorName)
+        {
+            string key = TextUtil.NormalizeFloorKey (floorName);
+            return Units.Where (unit => TextUtil.NormalizeFloorKey (unit.Floor) == key).Sum (unit => unit.GrossArea);
+        }
     }
 
     public sealed class RetainingWall
+    {
+        public string Name = string.Empty;
+        public double Area;
+    }
+
+    /// <summary>
+    /// Site-level construction item that is not an istinat duvarı -- foseptik,
+    /// trafo binası, su deposu binası vb. Its area adds directly into the Yapı
+    /// İnşaat Alanı total, the same way a retaining wall adds into the
+    /// construction grand total, but the two are reported separately since
+    /// they answer different questions on a ruhsat dosyası.
+    /// </summary>
+    public sealed class ExtraStructure
     {
         public string Name = string.Empty;
         public double Area;
@@ -114,6 +139,7 @@ namespace RuhsatHesap.Core.Model
         public List<StoryRecord> ArchicadStories = new List<StoryRecord> ();
         public List<BlockRecord> Blocks = new List<BlockRecord> ();
         public List<RetainingWall> RetainingWalls = new List<RetainingWall> ();
+        public List<ExtraStructure> ExtraStructures = new List<ExtraStructure> ();
         public int ProvidedParkingSpaces;
 
         /// <summary>
