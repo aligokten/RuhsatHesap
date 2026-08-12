@@ -108,6 +108,12 @@ Form üç sekmelidir:
 * **Katlar / Emsal** — blok ve kat bazında emsal alanı ile emsal dışı alan.
   %30 istisna ve yapı inşaat kalemleri etiketlerden okunduğu için burada
   yalnız toplamları görünür.
+* **Ek Yapılar** — foseptik, su deposu, yağmur suyu deposu, trafo binası gibi
+  **hiçbir bloka ait olmayan** yapılar ile istinat duvarları. Bu sekmede blok
+  ve kat sütunu yoktur; yalnız ad ve alan girilir. Ek yapılar Yapı İnşaat Alanı
+  toplamına eklenir. Aynı kalemleri çizimden okutmak isterseniz
+  `RH|TIP=EK_YAPI|AD=Foseptik` (istinat için `RH|TIP=ISTINAT|AD=…`) etiketini
+  kullanın — bu etiketler de `BLOK`/`KAT` istemez.
 
 Üstteki düğmeler: **Yenile**, **Kaydet** (formu çizime yazar), **Çizimi Tara**
 (`RHTARA`), **Tabloları Çiz** (`RHTABLOLAR`), **Excel**, **JSON Kaydet**.

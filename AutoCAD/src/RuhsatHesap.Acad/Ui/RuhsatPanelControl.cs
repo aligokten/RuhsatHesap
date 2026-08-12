@@ -25,6 +25,9 @@ namespace RuhsatHesap.Acad.Ui
     {
         private ProjectData _project = new ProjectData ();
 
+        /// <summary>Rows the last save dropped for having no Blok.</summary>
+        private int _skippedRows;
+
         private readonly TextBox _projectName = NewText ();
         private readonly TextBox _city = NewText ();
         private readonly TextBox _district = NewText ();
@@ -42,6 +45,8 @@ namespace RuhsatHesap.Acad.Ui
 
         private readonly DataGridView _unitGrid = NewGrid ();
         private readonly DataGridView _floorGrid = NewGrid ();
+        private readonly DataGridView _extraGrid = NewGrid ();
+        private readonly DataGridView _wallGrid = NewGrid ();
         private readonly Label _status = new Label {
             Dock = DockStyle.Bottom, Height = 46, Padding = new Padding (8, 4, 8, 4),
             TextAlign = ContentAlignment.MiddleLeft
@@ -78,6 +83,7 @@ namespace RuhsatHesap.Acad.Ui
             tabs.TabPages.Add (BuildParcelTab ());
             tabs.TabPages.Add (BuildUnitTab ());
             tabs.TabPages.Add (BuildFloorTab ());
+            tabs.TabPages.Add (BuildSiteTab ());
 
             // Double-clicking a warning copies it, so a handle like <2A3> can
             // be pasted straight into RHSOR.
@@ -188,6 +194,50 @@ namespace RuhsatHesap.Acad.Ui
             return page;
         }
 
+        /// <summary>
+        /// Foseptik, su deposu, trafo binası and istinat duvarları belong to
+        /// the parsel, not to a blok or a kat -- the Katlar grid would drop
+        /// them for having no Blok. They get their own tab, matching the
+        /// TIP=EK_YAPI / TIP=ISTINAT etiketler, which likewise carry neither
+        /// BLOK nor KAT.
+        /// </summary>
+        private TabPage BuildSiteTab ()
+        {
+            var page = new TabPage ("Ek Yapılar") { Padding = new Padding (6) };
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+            layout.RowStyles.Add (new RowStyle (SizeType.Percent, 50));
+            layout.RowStyles.Add (new RowStyle (SizeType.Percent, 50));
+
+            AddGridColumn (_extraGrid, "Ad", 190);
+            AddGridColumn (_extraGrid, "Alan (m²)", 90);
+            layout.Controls.Add (BuildSiteGroup (
+                "Ek yapılar — foseptik, su deposu, trafo … (blok ve kat gerekmez)",
+                _extraGrid, "Ek yapı ekle", row => row.Cells[0].Value = "Foseptik",
+                "Yapı İnşaat Alanı toplamına eklenir. Çizimden okumak için: RH|TIP=EK_YAPI|AD=Foseptik"));
+
+            AddGridColumn (_wallGrid, "Ad", 190);
+            AddGridColumn (_wallGrid, "Alan (m²)", 90);
+            layout.Controls.Add (BuildSiteGroup (
+                "İstinat duvarları (blok ve kat gerekmez)",
+                _wallGrid, "İstinat duvarı ekle", row => row.Cells[0].Value = "İstinat Duvarı",
+                "Çizimden okumak için: RH|TIP=ISTINAT|AD=Doğu İstinat"));
+
+            page.Controls.Add (layout);
+            return page;
+        }
+
+        private Control BuildSiteGroup (string title, DataGridView grid, string addText,
+            Action<DataGridViewRow> initialise, string hint)
+        {
+            var box = new GroupBox { Text = title, Dock = DockStyle.Fill, Padding = new Padding (6, 4, 6, 4) };
+            box.Controls.Add (grid);
+            box.Controls.Add (BuildGridButtons (grid, addText, initialise));
+            box.Controls.Add (new Label {
+                Dock = DockStyle.Bottom, Height = 18, ForeColor = SystemColors.GrayText, Text = hint
+            });
+            return box;
+        }
+
         private Control BuildGridButtons (DataGridView grid, string addText, Action<DataGridViewRow> initialise)
         {
             var bar = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 32, WrapContents = false };
@@ -289,8 +339,14 @@ namespace RuhsatHesap.Acad.Ui
                     DrawingStore.SaveProject (document.Database, _project);
                 }
                 FillFormFromProject ();
-                if (report) SetStatus ("Veriler çizime kaydedildi. (DWG'yi kaydetmeyi unutmayın.)");
-                else SetStatus (null);
+                // A row with data but no Blok used to vanish without a word.
+                // Say so, and point at the tab that does not need one.
+                string skipped = _skippedRows > 0
+                    ? " " + _skippedRows + " satır BLOK boş olduğu için atlandı — foseptik, su deposu " +
+                      "gibi bloka ait olmayan yapılar için \"Ek Yapılar\" sekmesini kullanın."
+                    : string.Empty;
+                if (report) SetStatus ("Veriler çizime kaydedildi. (DWG'yi kaydetmeyi unutmayın.)" + skipped);
+                else SetStatus (skipped.Length > 0 ? skipped.Trim () : null);
             } catch (System.Exception exception) {
                 SetStatus ("Kaydedilemedi: " + exception.Message);
             }
@@ -420,6 +476,14 @@ namespace RuhsatHesap.Acad.Ui
                                              block.UnitGrossOnFloor (floor.Name)));
                 }
             }
+
+            _extraGrid.Rows.Clear ();
+            foreach (ExtraStructure structure in _project.ExtraStructures)
+                _extraGrid.Rows.Add (structure.Name, TextUtil.FormatArea (structure.Area));
+
+            _wallGrid.Rows.Clear ();
+            foreach (RetainingWall wall in _project.RetainingWalls)
+                _wallGrid.Rows.Add (wall.Name, TextUtil.FormatArea (wall.Area));
         }
 
         private void ApplyFormToProject ()
@@ -445,10 +509,38 @@ namespace RuhsatHesap.Acad.Ui
             _project.SetAuxNumber ("commonArea",
                 Math.Max (commonFromCad, TextUtil.ParseNumberLoose (_commonArea.Text)));
 
-            ApplyUnitGrid ();
-            ApplyFloorGrid ();
+            _skippedRows = ApplyUnitGrid () + ApplyFloorGrid ();
+            ApplySiteGrids ();
             _project.SortUnits ();
             _project.SortFloors ();
+        }
+
+        /// <summary>
+        /// Ek yapılar and istinat duvarları are parsel-level: no blok, no kat.
+        /// The grids own the whole list, so deleting a row here removes it --
+        /// including one a scan created, which the next RHTARA puts back.
+        /// </summary>
+        private void ApplySiteGrids ()
+        {
+            _project.ExtraStructures.Clear ();
+            foreach (DataGridViewRow row in _extraGrid.Rows) {
+                if (row.IsNewRow) continue;
+                string name = CellText (row, 0);
+                if (name.Length == 0) continue;
+                _project.ExtraStructures.Add (new ExtraStructure {
+                    Name = name, Area = TextUtil.ParseNumberLoose (CellText (row, 1))
+                });
+            }
+
+            _project.RetainingWalls.Clear ();
+            foreach (DataGridViewRow row in _wallGrid.Rows) {
+                if (row.IsNewRow) continue;
+                string name = CellText (row, 0);
+                if (name.Length == 0) continue;
+                _project.RetainingWalls.Add (new RetainingWall {
+                    Name = name, Area = TextUtil.ParseNumberLoose (CellText (row, 1))
+                });
+            }
         }
 
         /// <summary>
@@ -456,14 +548,19 @@ namespace RuhsatHesap.Acad.Ui
         /// that lets a re-scan replace only its own contribution survives an
         /// edit in the form.
         /// </summary>
-        private void ApplyUnitGrid ()
+        /// <returns>Blok/BB boş olduğu için atlanan satır sayısı.</returns>
+        private int ApplyUnitGrid ()
         {
+            int skipped = 0;
             var seen = new HashSet<string> (StringComparer.Ordinal);
             foreach (DataGridViewRow row in _unitGrid.Rows) {
                 if (row.IsNewRow) continue;
                 string blockName = TextUtil.Normalize (CellText (row, 0));
                 string number = CellText (row, 1);
-                if (blockName.Length == 0 || number.Length == 0) continue;
+                if (blockName.Length == 0 || number.Length == 0) {
+                    if (!IsRowBlank (row)) skipped++;
+                    continue;
+                }
 
                 BlockRecord block = FindOrAddBlock (blockName);
                 IndependentUnit unit = block.Units.FirstOrDefault (item => item.Number.Trim () == number);
@@ -489,16 +586,22 @@ namespace RuhsatHesap.Acad.Ui
                 string blockName = TextUtil.Normalize (block.Name);
                 block.Units.RemoveAll (unit => !seen.Contains (blockName + "\u0001" + unit.Number.Trim ()));
             }
+            return skipped;
         }
 
-        private void ApplyFloorGrid ()
+        /// <returns>Blok/kat boş olduğu için atlanan satır sayısı.</returns>
+        private int ApplyFloorGrid ()
         {
+            int skipped = 0;
             var seen = new HashSet<string> (StringComparer.Ordinal);
             foreach (DataGridViewRow row in _floorGrid.Rows) {
                 if (row.IsNewRow) continue;
                 string blockName = TextUtil.Normalize (CellText (row, 0));
                 string floorName = CellText (row, 1);
-                if (blockName.Length == 0 || floorName.Length == 0) continue;
+                if (blockName.Length == 0 || floorName.Length == 0) {
+                    if (!IsRowBlank (row)) skipped++;
+                    continue;
+                }
 
                 BlockRecord block = FindOrAddBlock (blockName);
                 FloorRecord floor = FindOrAddFloor (block, floorName);
@@ -512,6 +615,7 @@ namespace RuhsatHesap.Acad.Ui
                 block.Floors.RemoveAll (floor => !seen.Contains (blockName + "\u0001" + floor.Name));
             }
             _project.Blocks.RemoveAll (block => block.Floors.Count == 0 && block.Units.Count == 0);
+            return skipped;
         }
 
         private BlockRecord FindOrAddBlock (string normalizedName)
@@ -536,6 +640,18 @@ namespace RuhsatHesap.Acad.Ui
         {
             object value = row.Cells[column].Value;
             return value == null ? string.Empty : value.ToString ().Trim ();
+        }
+
+        /// <summary>
+        /// A row the user never filled in. Distinguishing these from a row
+        /// that has data but no Blok is what makes the "atlandı" warning
+        /// meaningful instead of firing on every empty trailing row.
+        /// </summary>
+        private static bool IsRowBlank (DataGridViewRow row)
+        {
+            for (int column = 0; column < row.Cells.Count; column++)
+                if (CellText (row, column).Length > 0) return false;
+            return true;
         }
 
         private void SetStatus (string message)
