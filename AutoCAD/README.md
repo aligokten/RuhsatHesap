@@ -23,15 +23,32 @@ açılabilir.
 
 ### Hazır paket (önerilen)
 
-1. GitHub Actions → **Build AutoCAD Plugin** çalışmasından
-   `RuhsatHesap-AutoCAD-bundle` dosyasını indirin.
-2. Arşivi açın; içindeki klasörü `RuhsatHesap.bundle` adıyla şu klasöre kopyalayın:
+1. [Releases](https://github.com/aligokten/RuhsatHesap/releases) sayfasından
+   `RuhsatHesap-AutoCAD-<sürüm>.zip` dosyasını indirin.
+2. Zip'in içindeki `RuhsatHesap.bundle` klasörünü şuraya kopyalayın:
 
    ```
-   %APPDATA%\Autodesk\ApplicationPlugins\RuhsatHesap.bundle
+   %APPDATA%\Autodesk\ApplicationPlugins\
    ```
 
-3. AutoCAD'i yeniden başlatın. Komut satırında `RHYARDIM` yazın.
+3. Kopyaladığınız klasördeki `.dll` dosyalarının **engelini kaldırın**.
+   İnternetten inen dosyaları Windows işaretler ve AutoCAD işaretli bir
+   assembly'i sessizce yüklemez.
+4. AutoCAD'i yeniden başlatın. Komut satırında `RHYARDIM` yazın.
+
+PowerShell ile tek seferde:
+
+```powershell
+$zip  = "$env:USERPROFILE\Downloads\RuhsatHesap-AutoCAD-0.6.0.zip"
+$dest = "$env:APPDATA\Autodesk\ApplicationPlugins"
+Expand-Archive $zip -DestinationPath $dest -Force
+Get-ChildItem "$dest\RuhsatHesap.bundle" -Recurse -Filter *.dll | Unblock-File
+```
+
+Her `autocad-v*` etiketi **Release AutoCAD Plugin** iş akışını çalıştırıp yeni
+bir Release yayımlar. Ara derlemeler için GitHub Actions → **Build AutoCAD
+Plugin** çalışmasının `RuhsatHesap-AutoCAD-bundle` artifact'ı da kullanılabilir
+(90 gün saklanır).
 
 Paket hem `.NET Framework 4.8` (AutoCAD 2019–2024) hem de `.NET 8`
 (AutoCAD 2025 ve sonrası) sürümlerini içerir; AutoCAD kendi sürümüne uyanı
