@@ -161,8 +161,8 @@ namespace RuhsatHesap.Acad.Ui
             }));
             var note = new Label {
                 Dock = DockStyle.Bottom, Height = 34, ForeColor = SystemColors.GrayText,
-                Text = "%30 istisna ve yapı inşaat kalemleri etiketlerden okunur (TIP=MERDIVEN, HESAP=EMSAL …); " +
-                       "burada toplamları görünür."
+                Text = "%30 istisna ve yapı inşaat kalemleri etiketlerden okunur (TIP=MERDIVEN, HESAP=EMSAL, " +
+                       "TIP=BALKON …); burada toplamları görünür."
             };
             page.Controls.Add (note);
             return page;
@@ -289,7 +289,12 @@ namespace RuhsatHesap.Acad.Ui
             }
             SaveToDrawing (false);
             document.SendStringToExecute (command + " ", true, false, true);
-            SetStatus (command + " çalıştırıldı. Sonucu görmek için Yenile'ye basın.");
+            // RHTARA'nın "aynı alana sahip", "otomatik çıkarıldı" gibi tanı
+            // uyarıları yalnızca AutoCAD komut satırına yazılır -- panel bu
+            // asenkron komutun çıktısını okuyamaz, bu yüzden kullanıcıyı
+            // oraya yönlendiriyoruz.
+            SetStatus (command + " çalıştırıldı. Sayısal sonuç için Yenile'ye, " +
+                "uyarılar için AutoCAD komut satırına (F2) bakın.");
         }
 
         /// <summary>

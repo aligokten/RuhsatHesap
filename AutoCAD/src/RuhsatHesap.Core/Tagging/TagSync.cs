@@ -289,7 +289,18 @@ namespace RuhsatHesap.Core.Tagging
                     case AreaKind.Gross: aggregate.GrossArea += observation.Area; aggregate.HasGross = true; break;
                     case AreaKind.ExtensionNet: aggregate.ExtensionNetArea += observation.Area; aggregate.HasExtensionNet = true; break;
                     case AreaKind.ExtensionGross: aggregate.ExtensionGrossArea += observation.Area; aggregate.HasExtensionGross = true; break;
-                    case AreaKind.Balcony: aggregate.BalconyArea += observation.Area; aggregate.HasBalcony = true; break;
+                    case AreaKind.Balcony: {
+                        aggregate.BalconyArea += observation.Area; aggregate.HasBalcony = true;
+                        // Bağımsız bölüm balkonu kendi payının yanında, emsal
+                        // hesabının %30 istisna tablosundaki Açık Çıkma
+                        // kalemine de kat düzeyinde yansır.
+                        if (floorName.Length > 0) {
+                            FloorAggregate balconyFloor = GetOrCreateFloorAggregate (floorAggregates, tag.BlockName, floorName);
+                            Accumulate (balconyFloor.ThirtyPercentAreas, "acik_cikma", observation.Area);
+                            EnsureAreaKeyColumn (project, "thirtyPercentKeys", "acik_cikma");
+                        }
+                        break;
+                    }
                 }
             }
 
@@ -498,6 +509,26 @@ namespace RuhsatHesap.Core.Tagging
         {
             map.TryGetValue (key, out double current);
             map[key] = current + value;
+        }
+
+        /// <summary>
+        /// A second entry point into the floor aggregate dictionary for
+        /// kalemler that arrive through the bağımsız bölüm branch (balkon)
+        /// rather than the blok+kat branch that owns floorKey -- the key
+        /// format only has to be internally consistent within one Sync call,
+        /// since ApplyFloorAreas merges every FloorAggregate it is given onto
+        /// the matching FloorRecord by (normalized) name regardless of which
+        /// dictionary key produced it.
+        /// </summary>
+        private static FloorAggregate GetOrCreateFloorAggregate (
+            Dictionary<string, FloorAggregate> floorAggregates, string blockName, string floorName)
+        {
+            string key = blockName + "|BB-KAT|" + floorName;
+            if (!floorAggregates.TryGetValue (key, out FloorAggregate aggregate)) {
+                aggregate = new FloorAggregate { BlockName = blockName, FloorName = floorName };
+                floorAggregates[key] = aggregate;
+            }
+            return aggregate;
         }
 
         private static double WithoutPreviousImport (double currentValue, double importedValue)

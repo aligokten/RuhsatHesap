@@ -66,7 +66,48 @@ namespace RuhsatHesap.Core.Tests
             Assert.Equal (14.0, floor.ConstructionAreas["merdiven"], 2);
             Assert.Equal (190.4, floor.EmsalArea, 2);
             Assert.Equal (12.0, floor.EmsalOutsideArea, 2);
-            Assert.Empty (floor.ThirtyPercentAreas);
+            // BB=01'in TIP=BALKON alanı (8,2 m²), kendi payının yanında,
+            // kat düzeyinde %30 istisna tablosunun Açık Çıkma kalemine de
+            // yansır.
+            Assert.Equal (8.2, floor.ThirtyPercentAreas["acik_cikma"], 2);
+        }
+
+        [Fact]
+        public void UnitBalconiesSumIntoTheirFloorsAcikCikmaColumn ()
+        {
+            var project = new ProjectData ();
+            TagSyncResult result = TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|BLOK=A|BB=01|TIP=BALKON", 5.0, "ZEMİN KAT"),
+                Observation ("RH|BLOK=A|BB=02|TIP=BALKON", 3.5, "ZEMİN KAT"),
+                // Farklı kattaki balkon kendi katına gitmeli, ZEMİN KAT'a karışmamalı.
+                Observation ("RH|BLOK=A|BB=03|TIP=BALKON", 2.0, "1. KAT")
+            });
+
+            FloorRecord ground = project.Blocks[0].Floors.Single (floor => floor.Name == "ZEMİN KAT");
+            Assert.Equal (8.5, ground.ThirtyPercentAreas["acik_cikma"], 2);
+            FloorRecord first = project.Blocks[0].Floors.Single (floor => floor.Name == "1. KAT");
+            Assert.Equal (2.0, first.ThirtyPercentAreas["acik_cikma"], 2);
+
+            // Balkon kendi payında da (BB tablosu) tam olarak görünmeye devam eder.
+            IndependentUnit unit01 = project.Blocks[0].Units.Single (u => u.Number == "01");
+            Assert.Equal (5.0, unit01.BalconyArea, 2);
+
+            Assert.Equal (0, result.Invalid);
+        }
+
+        [Fact]
+        public void RepeatedScanReplacesOnlyItsOwnBalconyContribution ()
+        {
+            var project = new ProjectData ();
+            TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|BLOK=A|BB=01|TIP=BALKON", 5.0, "ZEMİN KAT")
+            });
+            TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|BLOK=A|BB=01|TIP=BALKON", 6.0, "ZEMİN KAT")
+            });
+
+            FloorRecord floor = project.Blocks[0].Floors.Single ();
+            Assert.Equal (6.0, floor.ThirtyPercentAreas["acik_cikma"], 2);
         }
 
         [Fact]

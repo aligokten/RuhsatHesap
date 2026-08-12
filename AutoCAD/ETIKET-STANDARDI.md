@@ -59,10 +59,17 @@ RH | ANAHTAR=DEĞER | ANAHTAR=DEĞER | ...
 | `BRUT` | `BRÜT`, `GROSS` | Bağımsız bölüm brüt alanı |
 | `EKLENTI_NET` | `EKLENTİ_NET`, `EKLENTINET` | Eklenti net alanı |
 | `EKLENTI_BRUT` | `EKLENTİ_BRÜT`, `EKLENTIBRUT` | Eklenti brüt alanı |
-| `BALKON` | – | Balkon alanı |
+| `BALKON` | – | Balkon alanı (bağımsız bölüm payı) **ve** o balkonun etiketlendiği katın Emsal Hesabı %30 istisna tablosundaki Açık Çıkma kalemi |
 
 Aynı bağımsız bölümün birden çok polylineı olabilir; aynı `BLOK` + `BB`
 değerine sahip bütün `NET` alanları toplanır.
+
+`BALKON` diğer bağımsız bölüm alanlarından farklı olarak iki yere birden
+yazılır: Bağımsız Bölümler tablosundaki kendi payına **ve** balkonun
+etiketindeki `KAT=` değerine göre o katın Açık Çıkma (`acik_cikma`) %30
+kalemine. Bir dublekste alt kat ile üst kattaki balkon farklı katlara
+etiketlenmişse, her biri kendi katının Açık Çıkma toplamına eklenir —
+bağımsız bölümün BB tablosundaki "bulunduğu kat" alanıyla karıştırmayın.
 
 ### Kat ve ortak alanlar (`BB` kullanılmaz)
 
