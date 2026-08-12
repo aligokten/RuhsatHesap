@@ -154,6 +154,12 @@ hesaplanan alan gerçekte olması gerekenin yaklaşık iki katı çıkar. Uyarı
 nesnenin handle'ını (`<...>`) adı geçirir; ilgili nesneleri `RHSOR` ile
 bulup yalnızca birinde etiket bırakın.
 
+Bir `TIP=EMSAL` sınırının içinde merdiven/hol/asansör/saçak, serbest %30
+kalemleri veya `EMSAL_DISI` gibi ayrıca etiketlenmiş bir iç alan varsa,
+`RHTARA` bu iç alanı otomatik olarak dış emsal alanından düşer (kendi
+kalemine hâlâ tam olarak işlenir) ve hangi nesnenin ne kadar düşüldüğünü
+bildirir — ayrıntı için bkz. [ETIKET-STANDARDI.md](ETIKET-STANDARDI.md).
+
 ### Tablolar
 
 | Komut | Tablo |

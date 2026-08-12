@@ -88,6 +88,20 @@ RH|BLOK=A|KAT=1. KAT|TIP=MERDIVEN|HESAP=EMSAL
 `SIGINAK` bunun dışındadır: her zaman Yapı İnşaat Alanı ile sığınak hesabını
 besler.
 
+`TIP=EMSAL` sınırı çoğu zaman odanın düz dış hattı olarak çizilir — içindeki
+merdiven/hol/asansör/saçak, serbest %30 kalemleri veya `EMSAL_DISI` alanları
+için ayrıca bir çentik açılmaz. `RHTARA` bunu otomatik olarak düzeltir: aynı
+blok/kat içinde bu tür bir iç alan bir `TIP=EMSAL` sınırının içinde tespit
+edilirse (iç alanın merkez noktası dış sınırın içindeyse), iç alan kendi
+kalemine (örn. %30 tablosu veya emsal dışı) tam olarak eskisi gibi işlenir,
+**ayrıca** dış emsal sınırının alanından da otomatik düşülür — böylece aynı
+metrekare iki kez sayılmaz. Her düşme işlemi `RHTARA` çıktısında iki nesnenin
+handle'ını adı geçiren bir satırla bildirilir. Aynı katta birden fazla
+`TIP=EMSAL` sınırı varsa, iç alanı gerçekten kapsayan en küçüğü seçilir. Bu
+tespit yalnızca iç alanın bir temsilci noktasına bakar (tam poligon-içinde-
+poligon testi değildir), bu yüzden iç alanı gerçekten dış sınırın içine
+çizmeniz yeterlidir — ayrı bir işlem yapmanıza gerek yoktur.
+
 ### Parsel düzeyi kalemler (`BLOK` ve `KAT` kullanılmaz)
 
 | Değer | Diğer yazımlar | Aktarıldığı yer |
@@ -229,3 +243,4 @@ parçalar `-`, anahtar/değer ise **ilk** `_` ile ayrılır. Böylece
 | Foseptik/trafo gibi yapılar inşaat alanına eklenmiyor | `TIP=EK_YAPI` yerine tanınmayan başka bir TIP veya `BLOK=`/`KAT=` ile etiketlenmiş; `EK_YAPI` blok/kat gerektirmez, `AD=` ile adlandırılır |
 | Hesaplanan alan gerçek alanın ~2 katı çıkıyor | Aynı bölge hem `HATCH` (taralı dolgu) hem sınır çizgisiyle (polyline/region) etiketlenmiş; `RHTARA` bu durumda iki nesnenin handle'ını adı geçiren "neredeyse birebir aynı alana sahip" uyarısı verir — uyarıdaki nesnelerden yalnızca birinde etiket bırakın |
 | Tabloda bir katın (ör. emsal) verisi eksik/eski görünüyor ama panel doğru toplam gösteriyor | Canvasta `RHTARA`'dan önce çizilmiş, güncellenmemiş bir eski tablo var; `RHTABLOTEMIZLE` ile eski tabloları silip ilgili tablo komutunu tekrar çalıştırın (ya da tablo komutları artık yeniden çizmeden önce "eskiler silinsin mi?" diye sorar) |
+| Emsal alanı beklenenden küçük çıktı, `RHTARA` "emsal alanından ... otomatik çıkarıldı" diyor | Beklenen davranış: içindeki merdiven/hol/asansör/%30/emsal dışı gibi bir alan `TIP=EMSAL` sınırının içinde tespit edildi ve çift sayılmasın diye düşüldü — bkz. "Kat ve ortak alanlar" bölümü. Düşülmesini istemiyorsanız iç alanın merkez noktası dış sınırın içine düşmeyecek şekilde ayırın |

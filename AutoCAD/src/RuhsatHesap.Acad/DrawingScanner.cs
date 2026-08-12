@@ -129,9 +129,29 @@ namespace RuhsatHesap.Acad
                     Area = Math.Round (rawArea * factor, 4),
                     Handle = entity.Handle.ToString (),
                     Layer = entity.Layer,
-                    FloorName = ResolveFloor (tag, frames, anchor, settings)
+                    FloorName = ResolveFloor (tag, frames, anchor, settings),
+                    AnchorX = anchor.X,
+                    AnchorY = anchor.Y
                 };
                 if (tag != null) observation.SetTag (tag);
+
+                // A TIP=EMSAL sınırı's outline is what RuhsatHesap.Core needs
+                // to subtract a nested %30/emsal dışı alan from it. Whether a
+                // serbest TIP will turn into CustomFloorArea (and so could
+                // later act as one of those nested kalemler) is not knowable
+                // this early -- that promotion happens once ProjectData is
+                // available, inside TagSync.Sync -- so every floor-level,
+                // non-unit kalem is sampled to be safe.
+                if (tag != null && tag.IsRuhsatTag && !tag.IsUnitArea && tag.NeedsFloor) {
+                    List<Point2d> polygon = GeometryUtil.SamplePolygon (entity);
+                    if (polygon.Count >= 3) {
+                        var points = new (double X, double Y)[polygon.Count];
+                        for (int index = 0; index < polygon.Count; index++)
+                            points[index] = (polygon[index].X, polygon[index].Y);
+                        observation.Polygon = points;
+                    }
+                }
+
                 observations.Add (observation);
             }
 

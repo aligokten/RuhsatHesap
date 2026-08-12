@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using RuhsatHesap.Core.Geometry;
 using RuhsatHesap.Core.Json;
 using RuhsatHesap.Core.Model;
 
@@ -20,6 +21,19 @@ namespace RuhsatHesap.Core.Tagging
         /// to the polylines it was measured from.</summary>
         public string Handle = string.Empty;
         public string Layer = string.Empty;
+
+        /// <summary>A point that lies inside this object's outline. Only kat
+        /// (floor-level) etiketler carry one; leave at (0,0) for anything the
+        /// nested-area reduction never needs to test.</summary>
+        public double AnchorX, AnchorY;
+
+        /// <summary>
+        /// Rough outline in drawing (world) coordinates, sampled by the
+        /// scanner. Only populated for TIP=EMSAL objects, which are the only
+        /// ones that ever act as a container in <see cref="TagSync"/>'s
+        /// nested-area reduction; every other kalem leaves this empty.
+        /// </summary>
+        public IReadOnlyList<(double X, double Y)> Polygon = System.Array.Empty<(double, double)> ();
 
         private RuhsatTag _tag;
         public RuhsatTag Tag => _tag ?? (_tag = RuhsatTag.Parse (TagText));
@@ -104,9 +118,15 @@ namespace RuhsatHesap.Core.Tagging
             var floorAggregates = new Dictionary<string, FloorAggregate> (StringComparer.Ordinal);
             var cadWalls = new List<RetainingWall> ();
             var cadExtraStructures = new List<ExtraStructure> ();
+            var resolved = new List<ResolvedObservation> ();
             double commonArea = 0.0, shelterArea = 0.0, parcelArea = 0.0, footprintArea = 0.0;
             bool hasParcel = false, hasFootprint = false;
 
+            // Pass 1: parse, validate and resolve every observation (including
+            // the deferred TIP=CustomFloorArea promotion, which needs the
+            // project's own area-key columns) but do not aggregate yet -- the
+            // nested-area reduction below must see every kalem's final Kind
+            // and floor before any of it is summed into a table cell.
             foreach (AreaObservation observation in observations) {
                 RuhsatTag tag = observation.Tag;
                 if (!tag.IsRuhsatTag) { result.Ignored++; continue; }
@@ -177,6 +197,30 @@ namespace RuhsatHesap.Core.Tagging
                     result.AddProblem (Describe (observation) + ": BB numarası eksik");
                     continue;
                 }
+
+                resolved.Add (new ResolvedObservation {
+                    Observation = observation, Tag = tag, FloorName = floorName,
+                    UnitNumber = unitNumber, CustomAreaKey = customAreaKey, TypeName = typeName
+                });
+            }
+
+            // Pass 1.5: an emsal sınırı is usually drawn as the plain room
+            // outline, with no notch cut out for a merdiven/hol/asansör/emsal
+            // dışı alan that sits inside it and is separately etiketlenmiş --
+            // subtract each such nested alan from the emsal sınırı before its
+            // (still too large) area gets aggregated below, so it is not
+            // counted once inside the emsal alanı and again in its own kalem.
+            ReduceContainedAreas (resolved, result);
+
+            // Pass 2: aggregate using each kalem's already-resolved Kind, kat
+            // and (for emsal sınırları) now-corrected Area.
+            foreach (ResolvedObservation item in resolved) {
+                AreaObservation observation = item.Observation;
+                RuhsatTag tag = item.Tag;
+                string floorName = item.FloorName;
+                string customAreaKey = item.CustomAreaKey;
+                string unitNumber = item.UnitNumber;
+                string typeName = item.TypeName;
 
                 result.Recognized++;
                 result.Tally (typeName, observation.Area);
@@ -368,6 +412,71 @@ namespace RuhsatHesap.Core.Tagging
                 case AreaKind.ParcelBoundary: return "P";
                 case AreaKind.BuildingFootprint: return "T";
                 default: return null;
+            }
+        }
+
+        /// <summary>
+        /// Kinds that legitimately sit inside a TIP=EMSAL sınırı: it is
+        /// normally drawn as the plain room outline, with no notch cut out
+        /// for a merdiven/hol/saçak/asansör, serbest %30 kalemi or emsal dışı
+        /// alan that sits inside it and is separately etiketlenmiş. Those
+        /// still feed their own %30/emsal dışı kalemi, but must be missing
+        /// from the (too large) raw emsal alanı or they are counted twice.
+        /// </summary>
+        private static readonly HashSet<AreaKind> NestedAreaKinds = new HashSet<AreaKind> {
+            AreaKind.Stair, AreaKind.Hall, AreaKind.Eave, AreaKind.Elevator,
+            AreaKind.CustomFloorArea, AreaKind.EmsalOutside
+        };
+
+        /// <summary>
+        /// Subtracts every nested %30/emsal dışı kalemi from the smallest
+        /// TIP=EMSAL sınırı (same blok, aynı kat) whose sampled outline
+        /// contains its representative point. Only a point is tested, the
+        /// same simplification RHTARA already uses to match etiketler to kat
+        /// sınırı çerçeveleri (see DrawingScanner.FindFrame) -- a full
+        /// polygon-in-polygon test is not worth the extra complexity for
+        /// plans where the nested alan genuinely sits inside its container.
+        /// Objects the scanner never sampled a Polygon for (RHALANTABLO's
+        /// free selection, or plain unit tests) simply never match, so this
+        /// is a no-op unless the caller opted in.
+        /// </summary>
+        private static void ReduceContainedAreas (List<ResolvedObservation> resolved, TagSyncResult result)
+        {
+            var groups = new Dictionary<string, List<ResolvedObservation>> (StringComparer.Ordinal);
+            foreach (ResolvedObservation item in resolved) {
+                if (item.Tag.IsUnitArea) continue;
+                if (item.Tag.Kind != AreaKind.Emsal && !NestedAreaKinds.Contains (item.Tag.Kind)) continue;
+                string key = item.Tag.BlockName + "|" + TextUtil.NormalizeFloorKey (item.FloorName);
+                if (!groups.TryGetValue (key, out List<ResolvedObservation> list)) {
+                    list = new List<ResolvedObservation> ();
+                    groups[key] = list;
+                }
+                list.Add (item);
+            }
+
+            foreach (List<ResolvedObservation> group in groups.Values) {
+                List<ResolvedObservation> containers = group.Where (item => item.Tag.Kind == AreaKind.Emsal &&
+                    item.Observation.Polygon.Count >= 3).ToList ();
+                if (containers.Count == 0) continue;
+
+                foreach (ResolvedObservation nested in group.Where (item => NestedAreaKinds.Contains (item.Tag.Kind))) {
+                    ResolvedObservation best = null;
+                    foreach (ResolvedObservation container in containers) {
+                        if (ReferenceEquals (container, nested)) continue;
+                        if (!PolygonMath.PointInPolygon (container.Observation.Polygon,
+                                nested.Observation.AnchorX, nested.Observation.AnchorY)) continue;
+                        if (best == null || container.Observation.Area < best.Observation.Area) best = container;
+                    }
+                    if (best == null) continue;
+
+                    double subtract = Math.Min (nested.Observation.Area, best.Observation.Area);
+                    if (subtract <= Epsilon) continue;
+                    best.Observation.Area -= subtract;
+                    result.AddProblem ("<" + best.Observation.Handle + "> emsal alanından <" + nested.Observation.Handle +
+                        "> (TIP=" + nested.TypeName + ", " + TextUtil.FormatArea (subtract) + " m²) otomatik " +
+                        "çıkarıldı (iç sınır dış sınırın içinde tespit edildi); kalan emsal alanı " +
+                        TextUtil.FormatArea (best.Observation.Area) + " m².");
+                }
             }
         }
 
@@ -650,6 +759,20 @@ namespace RuhsatHesap.Core.Tagging
         }
 
         private static double Round2 (double value) => Math.Round (value, 2, MidpointRounding.AwayFromZero);
+
+        /// <summary>One observation once its Kind, kat and (for a serbest
+        /// TIP) area-key are fully resolved but not yet aggregated -- the
+        /// hand-off point between Sync's resolve pass and its aggregation
+        /// pass, with the nested-area reduction running in between.</summary>
+        private sealed class ResolvedObservation
+        {
+            public AreaObservation Observation;
+            public RuhsatTag Tag;
+            public string FloorName = string.Empty;
+            public string UnitNumber = string.Empty;
+            public string CustomAreaKey = string.Empty;
+            public string TypeName = string.Empty;
+        }
 
         private sealed class UnitAggregate
         {
