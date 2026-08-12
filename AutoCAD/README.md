@@ -90,6 +90,34 @@ oranlara göre hesaplanır.
 
 ## Komutlar
 
+### Form penceresi
+
+| Komut | İşlevi |
+| --- | --- |
+| `RHPANEL` | **Ruhsat Hesap formunu** açar/kapatır — sabitlenebilir palet |
+| `RHPANELYENILE` | Formu çizimdeki güncel veriyle yeniler |
+
+Form üç sekmelidir:
+
+* **Parsel** — proje adı, il/ilçe/mahalle, ada/parsel, parsel alanı, TAKS, emsal
+  yöntemi (KAKS veya doğrudan), yapı oturum alanı, ortak alan ve otopark.
+  Parsel alanı ile oturum alanının yanındaki **Çizimden ölç** düğmesi
+  polyline seçtirip m² değerini kutuya yazar.
+* **Bağımsız Bölümler** — blok, BB no, kat, nitelik, oda sayısı, brüt/net/eklenti
+  ve balkon alanları, arsa payı ve malik bilgisi; satır ekleyip silebilirsiniz.
+* **Katlar / Emsal** — blok ve kat bazında emsal alanı ile emsal dışı alan.
+  %30 istisna ve yapı inşaat kalemleri etiketlerden okunduğu için burada
+  yalnız toplamları görünür.
+
+Üstteki düğmeler: **Yenile**, **Kaydet** (formu çizime yazar), **Çizimi Tara**
+(`RHTARA`), **Tabloları Çiz** (`RHTABLOLAR`), **Excel**, **JSON Kaydet**.
+Alt satırda hesaplanan emsal, emsal bakiyesi/aşımı, bağımsız bölüm sayısı, yapı
+inşaat alanı ve otopark durumu canlı olarak görünür.
+
+Elle girilen değerlerle etiketten gelenler yan yana yaşar: `RHTARA` her
+çalıştığında yalnız kendi yazdığı kalemleri yeniden kurar, formda yazdıklarınıza
+dokunmaz.
+
 ### Ayarlar
 
 | Komut | İşlevi |
@@ -134,8 +162,8 @@ değerleri yeniler, elle girdiğiniz kalemlere dokunmaz.
 
 Tablolar `RH-TABLO` katmanına, seçtiğiniz noktadan başlayarak yerleştirilir ve
 normal AutoCAD tablosu oldukları için tablo stiliyle biçimlendirilebilir.
-Hücrelere arka plan dolgusu uygulanmaz; renk ve çizgi denetimi tamamen
-çizimdeki tablo stilindedir. Yazı tipi varsayılan olarak **ISOCPEUR** stilidir —
+Bütün hücreler ortalanır, arka plan dolgusu uygulanmaz; renk ve çizgi denetimi
+tamamen çizimdeki tablo stilindedir. Yazı tipi varsayılan olarak **ISOCPEUR** stilidir —
 çizimde yoksa eklenti bu adla bir yazı stili oluşturur. `RHAYAR` ile başka bir
 stil adı verebilirsiniz (boş bırakırsanız tablo stilinin kendi yazı stili
 kullanılır).

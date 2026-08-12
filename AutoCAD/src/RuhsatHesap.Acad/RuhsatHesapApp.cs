@@ -8,6 +8,7 @@ using RuhsatHesap.Acad.Commands;
 [assembly: CommandClass (typeof (TaggingCommands))]
 [assembly: CommandClass (typeof (TableCommands))]
 [assembly: CommandClass (typeof (ExportCommands))]
+[assembly: CommandClass (typeof (PanelCommands))]
 
 namespace RuhsatHesap.Acad
 {
@@ -25,7 +26,8 @@ namespace RuhsatHesap.Acad
             Document document = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
             if (document == null) return;
             document.Editor.WriteMessage (
-                "\nRuhsat Hesap AutoCAD eklentisi " + Version + " yüklendi. Komut listesi için: RHYARDIM\n");
+                "\nRuhsat Hesap AutoCAD eklentisi " + Version +
+                " yüklendi. Form için: RHPANEL, komut listesi için: RHYARDIM\n");
         }
 
         public void Terminate ()

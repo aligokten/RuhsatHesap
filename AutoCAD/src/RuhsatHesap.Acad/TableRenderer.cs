@@ -10,8 +10,9 @@ namespace RuhsatHesap.Acad
     /// <summary>
     /// Draws a <see cref="ReportTable"/> into the drawing as a native AutoCAD
     /// TABLE entity, so the result can be edited, restyled and plotted like any
-    /// other table in the sheet. Cells are left unfilled; the table style of the
-    /// drawing keeps full control over borders and colours.
+    /// other table in the sheet. Cells are left unfilled and every cell is
+    /// centred, so the drawing's table style keeps full control over borders
+    /// and colours.
     /// </summary>
     public static class TableRenderer
     {
@@ -58,18 +59,15 @@ namespace RuhsatHesap.Acad
                     if (column >= columnCount) break;
                     int span = Math.Max (1, cell.Span);
                     int lastColumn = Math.Min (columnCount, column + span) - 1;
-                    CellAlignment alignment = cell.Value.HasValue && span == 1
-                        ? CellAlignment.MiddleRight
-                        : CellAlignment.MiddleLeft;
-                    SetCell (acadTable, tableRow, column, cell.Text, textHeight, alignment, textStyleId);
+                    SetCell (acadTable, tableRow, column, cell.Text, textHeight, CellAlignment.MiddleCenter, textStyleId);
                     for (int filler = column + 1; filler <= lastColumn; filler++)
-                        SetCell (acadTable, tableRow, filler, string.Empty, textHeight, alignment, textStyleId);
+                        SetCell (acadTable, tableRow, filler, string.Empty, textHeight, CellAlignment.MiddleCenter, textStyleId);
                     if (lastColumn > column)
                         acadTable.MergeCells (CellRange.Create (acadTable, tableRow, column, tableRow, lastColumn));
                     column += span;
                 }
                 for (; column < columnCount; column++)
-                    SetCell (acadTable, tableRow, column, string.Empty, textHeight, CellAlignment.MiddleLeft, textStyleId);
+                    SetCell (acadTable, tableRow, column, string.Empty, textHeight, CellAlignment.MiddleCenter, textStyleId);
                 tableRow++;
             }
 

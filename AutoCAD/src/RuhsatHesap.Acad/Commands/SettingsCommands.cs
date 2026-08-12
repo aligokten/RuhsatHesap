@@ -21,6 +21,9 @@ namespace RuhsatHesap.Acad.Commands
             Editor editor = document.Editor;
 
             AcadUi.WriteHeader (editor, "RUHSAT HESAP — AUTOCAD EKLENTİSİ KOMUTLARI");
+            editor.WriteMessage ("\n  Form");
+            editor.WriteMessage ("\n    RHPANEL       Verileri doldurabileceğiniz form penceresini açar/kapatır");
+            editor.WriteMessage ("\n    RHPANELYENILE Formu çizimdeki veriyle yeniler");
             editor.WriteMessage ("\n  Ayarlar");
             editor.WriteMessage ("\n    RHAYAR        Çizim birimi, aktif kat/blok ve tablo yazı yüksekliği");
             editor.WriteMessage ("\n    RHBIRIM       Yalnızca çizim birimini değiştirir (m / cm / mm)");
