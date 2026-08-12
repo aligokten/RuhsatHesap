@@ -249,7 +249,7 @@ namespace RuhsatHesap.Core.Tests
 
             // Yapı İnşaat Alanı satırı da aynı katı gösterip BB brütünü içerir.
             ReportTable construction = ReportBuilder.Construction (project);
-            ReportRow dataRow = Assert.Single (construction.Rows.Where (row => row.Kind == RowKind.Data));
+            ReportRow dataRow = Assert.Single (construction.Rows, row => row.Kind == RowKind.Data);
             int grossColumn = construction.Columns.FindIndex (column => column.Header == "BB Brüt Alanı");
             Assert.Equal (75.0, ReportTable.CellAt (dataRow, grossColumn).Value.Value, 2);
 

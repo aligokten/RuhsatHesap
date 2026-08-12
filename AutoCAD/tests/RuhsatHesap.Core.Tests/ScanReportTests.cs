@@ -70,7 +70,7 @@ namespace RuhsatHesap.Core.Tests
 
             ReportTable units = ReportBuilder.Units (project);
             Assert.DoesNotContain (units.Rows, row => row.Kind == RowKind.Data);
-            ReportRow notice = Assert.Single (units.Rows.Where (row => row.Kind == RowKind.Section));
+            ReportRow notice = Assert.Single (units.Rows, row => row.Kind == RowKind.Section);
             Assert.Contains ("TIP=NET", notice.Cells[0].Text);
 
             ReportTable condominium = ReportBuilder.Condominium (project);
