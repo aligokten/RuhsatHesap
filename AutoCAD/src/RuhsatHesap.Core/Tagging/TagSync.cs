@@ -26,6 +26,14 @@ namespace RuhsatHesap.Core.Tagging
         public void SetTag (RuhsatTag tag) { _tag = tag; }
     }
 
+    /// <summary>How much area one TIP contributed, for the scan report.</summary>
+    public sealed class TypeTally
+    {
+        public string Type = string.Empty;
+        public int Count;
+        public double Area;
+    }
+
     public sealed class TagSyncResult
     {
         public int Scanned;
@@ -43,6 +51,24 @@ namespace RuhsatHesap.Core.Tagging
         public double ShelterArea;
         public int RetainingWalls;
         public readonly List<string> Problems = new List<string> ();
+
+        /// <summary>Recognised area per TIP, so the scan report shows at a
+        /// glance which etiket actually reached the tables.</summary>
+        public readonly SortedDictionary<string, TypeTally> ByType =
+            new SortedDictionary<string, TypeTally> (StringComparer.Ordinal);
+
+        internal void Tally (string type, double area)
+        {
+            if (string.IsNullOrEmpty (type)) type = "?";
+            if (!ByType.TryGetValue (type, out TypeTally tally)) {
+                tally = new TypeTally { Type = type };
+                ByType[type] = tally;
+            }
+            tally.Count++;
+            tally.Area += area;
+        }
+
+        public IEnumerable<TypeTally> Tallies => ByType.Values;
 
         public void AddProblem (string message)
         {
@@ -101,12 +127,15 @@ namespace RuhsatHesap.Core.Tagging
                     continue;
                 }
 
+                string typeName = TypeName (tag);
                 switch (tag.Kind) {
                     case AreaKind.ParcelBoundary:
                         parcelArea += observation.Area; hasParcel = true; result.Recognized++;
+                        result.Tally (typeName, observation.Area);
                         continue;
                     case AreaKind.BuildingFootprint:
                         footprintArea += observation.Area; hasFootprint = true; result.Recognized++;
+                        result.Tally (typeName, observation.Area);
                         continue;
                     case AreaKind.RetainingWall:
                         cadWalls.Add (new RetainingWall {
@@ -114,9 +143,11 @@ namespace RuhsatHesap.Core.Tagging
                             Area = observation.Area
                         });
                         result.Recognized++;
+                        result.Tally (typeName, observation.Area);
                         continue;
                     case AreaKind.Common:
                         commonArea += observation.Area; result.Recognized++;
+                        result.Tally (typeName, observation.Area);
                         continue;
                 }
 
@@ -136,6 +167,7 @@ namespace RuhsatHesap.Core.Tagging
                 }
 
                 result.Recognized++;
+                result.Tally (typeName, observation.Area);
 
                 if (!tag.IsUnitArea) {
                     string floorKey = tag.BlockName + "\u0001" + floorName;
@@ -214,6 +246,13 @@ namespace RuhsatHesap.Core.Tagging
             project.SortUnits ();
             project.SortFloors ();
             return result;
+        }
+
+        /// <summary>Canonical TIP name used as the tally key.</summary>
+        private static string TypeName (RuhsatTag tag)
+        {
+            string name = tag.AreaTypeName.Length > 0 ? tag.AreaTypeName : RuhsatTag.DefaultTypeName (tag.Kind);
+            return TextUtil.Normalize (name);
         }
 
         /// <summary>Short "which object" prefix for a problem message.</summary>

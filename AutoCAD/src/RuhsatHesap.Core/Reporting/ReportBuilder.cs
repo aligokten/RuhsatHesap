@@ -168,6 +168,9 @@ namespace RuhsatHesap.Core.Reporting
                 table.AddRow (RowKind.BlockTotal, totalCells.ToArray ());
             }
 
+            AddEmptyNotice (table, "Emsal verisi yok — kat sınırlarını " +
+                "RH|BLOK=A|KAT=…|TIP=EMSAL etiketleyip RHTARA çalıştırın.");
+
             var grandCells = new List<ReportCell> { ReportCell.OfText ("GENEL TOPLAM", 2) };
             for (int column = 2; column < table.ColumnCount; column++) {
                 double total = table.Rows
@@ -230,6 +233,10 @@ namespace RuhsatHesap.Core.Reporting
                 }
             }
 
+            if (AddEmptyNotice (table, "Bağımsız bölüm verisi yok — polylineları " +
+                    "RH|BLOK=A|BB=01|KAT=…|TIP=NET (ve TIP=BRUT) etiketleyip RHTARA çalıştırın."))
+                return table;
+
             var totals = new List<ReportCell> { ReportCell.OfText ("GENEL TOPLAM", 5) };
             for (int column = 5; column < table.ColumnCount; column++)
                 totals.Add (ReportCell.OfNumber (table.ColumnSum (column)));
@@ -265,6 +272,10 @@ namespace RuhsatHesap.Core.Reporting
                 }
             }
 
+            if (AddEmptyNotice (table, "Kat irtifakı verisi yok — bağımsız bölümler " +
+                    "TIP=NET / TIP=BRUT etiketlerinden okunur."))
+                return table;
+
             table.AddRow (RowKind.GrandTotal,
                 ReportCell.OfText ("GENEL TOPLAM", 6),
                 ReportCell.OfNumber (table.ColumnSum (6)),
@@ -299,6 +310,10 @@ namespace RuhsatHesap.Core.Reporting
                     table.AddRow (RowKind.Data, cells.ToArray ());
                 }
             }
+
+            if (AddEmptyNotice (table, "Yapı inşaat alanı verisi yok — kat kalemlerini " +
+                    "TIP=MERDIVEN, TIP=ASANSOR, TIP=SIGINAK … etiketleyin."))
+                return table;
 
             var totals = new List<ReportCell> { ReportCell.OfText ("GENEL TOPLAM", 2) };
             for (int column = 2; column < table.ColumnCount; column++)
@@ -412,6 +427,19 @@ namespace RuhsatHesap.Core.Reporting
                 ? "SAĞLANDI"
                 : "EKSİK: " + (summary.RequiredParkingSpaces - project.ProvidedParkingSpaces));
             return table;
+        }
+
+        /// <summary>
+        /// A table with no data row is the most common surprise: the drawing
+        /// simply has no etiket feeding it. Say so inside the table instead of
+        /// drawing an empty grid.
+        /// </summary>
+        private static bool AddEmptyNotice (ReportTable table, string message)
+        {
+            foreach (ReportRow row in table.Rows)
+                if (row.Kind == RowKind.Data) return false;
+            table.AddSection (message);
+            return true;
         }
 
         private static void AddText (ReportTable table, string label, string value)

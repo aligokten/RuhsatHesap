@@ -95,7 +95,7 @@ oranlara göre hesaplanır.
 | Komut | İşlevi |
 | --- | --- |
 | `RHYARDIM` | Komut listesini yazar |
-| `RHAYAR` | Çizim birimi, aktif blok/kat, tablo yazı yüksekliği, etiket yazısı |
+| `RHAYAR` | Çizim birimi, aktif blok/kat, tablo yazı yüksekliği ve yazı tipi, etiket yazısı |
 | `RHBIRIM` | Yalnızca çizim birimi (metre / santimetre / milimetre) |
 | `RHKAT` | `KAT=` yazılmayan etiketlerin varsayılan katı |
 | `RHPARSEL` | Proje adı, il/ilçe, ada/parsel, parsel alanı, TAKS, KAKS/emsal, oturum alanı |
@@ -134,6 +134,11 @@ değerleri yeniler, elle girdiğiniz kalemlere dokunmaz.
 
 Tablolar `RH-TABLO` katmanına, seçtiğiniz noktadan başlayarak yerleştirilir ve
 normal AutoCAD tablosu oldukları için tablo stiliyle biçimlendirilebilir.
+Hücrelere arka plan dolgusu uygulanmaz; renk ve çizgi denetimi tamamen
+çizimdeki tablo stilindedir. Yazı tipi varsayılan olarak **ISOCPEUR** stilidir —
+çizimde yoksa eklenti bu adla bir yazı stili oluşturur. `RHAYAR` ile başka bir
+stil adı verebilirsiniz (boş bırakırsanız tablo stilinin kendi yazı stili
+kullanılır).
 
 ### Aktarım
 
@@ -229,6 +234,9 @@ yüklediğiyle çakışması istenmez.
 * Blok referansı (`INSERT`) içindeki polylineler taranmaz; alan nesneleri model
   uzayında olmalıdır.
 * Etiketli nesne kapalı değilse alan, kapatılmış varsayılarak hesaplanır ve
-  komut satırında uyarı verilir.
+  komut satırında uyarı verilir. Hiç ölçülemeyen etiketli nesneler `RHTARA`
+  çıktısında tek tek listelenir; hesaba girmedikleri için tabloda sıfır görürsünüz.
+* `RHTARA` her taramanın sonunda TIP bazında kaç adet ve kaç m² okunduğunu
+  yazar — bir tablo boş çıktığında önce buraya bakın.
 * `RHJSONAC` web panelinin zarf biçimini okur, ancak dosyayı yeniden yazarken
   ortak (`ruhsat-hesap-archicad`) biçimde kaydeder.

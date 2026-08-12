@@ -173,8 +173,13 @@ namespace RuhsatHesap.Acad.Commands
 
                 AcadUi.WriteHeader (editor, "ÇİZİM TARAMASI");
                 AcadUi.Write (editor, "Çizim birimi     : " + DrawingUnitInfo.Label (settings.Unit));
-                AcadUi.Write (editor, "Etiketli nesne   : " + stats.Tagged + " (kat sınırı: " + stats.FloorFrames + ")");
+                AcadUi.Write (editor, "Etiketli nesne   : " + stats.Tagged + " (kat sınırı: " + stats.FloorFrames +
+                    ", ölçülemeyen: " + stats.Unmeasurable + ")");
                 AcadUi.Write (editor, "Okunan alan      : " + result.Recognized + ", geçersiz: " + result.Invalid);
+                foreach (TypeTally tally in result.Tallies) {
+                    AcadUi.Write (editor, "  TIP=" + tally.Type.PadRight (14) + tally.Count + " adet  " +
+                        TextUtil.FormatArea (tally.Area) + " m²");
+                }
                 AcadUi.Write (editor, "Blok / kat / BB  : +" + result.CreatedBlocks + " blok, +" + result.CreatedFloors +
                     " kat, +" + result.CreatedUnits + " yeni BB, " + result.UpdatedUnits + " güncellenen BB");
                 if (result.ParcelArea > 0.0) AcadUi.Write (editor, "Parsel alanı     : " + TextUtil.FormatArea (result.ParcelArea) + " m²");

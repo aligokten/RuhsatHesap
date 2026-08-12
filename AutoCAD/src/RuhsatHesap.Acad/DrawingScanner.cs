@@ -89,9 +89,13 @@ namespace RuhsatHesap.Acad
                 if (tag != null && tag.Kind == AreaKind.FloorFrame) continue;
 
                 if (!GeometryUtil.TryGetArea (entity, out double rawArea, out bool closed)) {
-                    if (fromXData) {
+                    // An etiketli object that cannot be measured is the single
+                    // most confusing failure -- it silently drops out of every
+                    // table -- so it is always reported.
+                    if (fromXData || TagStorage.TryParseLayerTag (entity.Layer, out string unusedLayerTag)) {
                         stats.Unmeasurable++;
-                        stats.Warn ("<" + entity.Handle + "> ölçülemedi: kapalı bir alan nesnesi değil.");
+                        stats.Warn ("<" + entity.Handle + "> (" + entity.GetType ().Name + ", " + entity.Layer +
+                            ") ölçülemedi: kapalı bir alan vermiyor, etiketi hesaba girmedi.");
                     }
                     continue;
                 }

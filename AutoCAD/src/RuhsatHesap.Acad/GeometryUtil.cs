@@ -31,9 +31,8 @@ namespace RuhsatHesap.Acad
             try {
                 switch (entity) {
                     case Hatch hatch:
-                        area = Math.Abs (hatch.Area);
                         closed = true;
-                        return area > 0.0;
+                        return TryGetHatchArea (hatch, out area);
                     case Region region:
                         area = Math.Abs (region.Area);
                         closed = true;
@@ -52,6 +51,75 @@ namespace RuhsatHesap.Acad
                 // the caller reports it as such.
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Hatch.Area is not available for every hatch -- non-associative
+        /// hatches and hatches whose loops are not simple polylines throw
+        /// instead of returning a value. Those are common in plans where the
+        /// alan is drawn by picking a point inside the walls, so the boundary
+        /// loops are measured directly as a fallback.
+        /// </summary>
+        private static bool TryGetHatchArea (Hatch hatch, out double area)
+        {
+            area = 0.0;
+            try {
+                area = Math.Abs (hatch.Area);
+                if (area > 1e-9) return true;
+            } catch (System.Exception) {
+                area = 0.0;
+            }
+
+            try {
+                double total = 0.0;
+                for (int index = 0; index < hatch.NumberOfLoops; index++) {
+                    HatchLoop loop = hatch.GetLoopAt (index);
+                    double loopArea = LoopArea (loop);
+                    // Outer boundaries add, islands cut out.
+                    bool isOuter = (loop.LoopType & HatchLoopTypes.External) != 0 ||
+                                   (loop.LoopType & HatchLoopTypes.Outermost) != 0 ||
+                                   hatch.NumberOfLoops == 1;
+                    total += isOuter ? loopArea : -loopArea;
+                }
+                area = Math.Abs (total);
+                return area > 1e-9;
+            } catch (System.Exception) {
+                area = 0.0;
+                return false;
+            }
+        }
+
+        private static double LoopArea (HatchLoop loop)
+        {
+            var points = new List<Point2d> ();
+            if ((loop.LoopType & HatchLoopTypes.Polyline) != 0) {
+                foreach (BulgeVertex vertex in loop.Polyline) points.Add (vertex.Vertex);
+            } else {
+                foreach (Curve2d curve in loop.Curves) {
+                    points.Add (curve.StartPoint);
+                    // One extra point per curve keeps arcs from being cut down
+                    // to their chord.
+                    try {
+                        Interval interval = curve.GetInterval ();
+                        points.Add (curve.EvaluatePoint ((interval.LowerBound + interval.UpperBound) * 0.5));
+                    } catch (System.Exception) {
+                        // Straight segments need no mid point.
+                    }
+                }
+            }
+            return Math.Abs (ShoelaceArea (points));
+        }
+
+        public static double ShoelaceArea (IList<Point2d> polygon)
+        {
+            if (polygon == null || polygon.Count < 3) return 0.0;
+            double twiceArea = 0.0;
+            for (int index = 0; index < polygon.Count; index++) {
+                Point2d current = polygon[index];
+                Point2d next = polygon[(index + 1) % polygon.Count];
+                twiceArea += current.X * next.Y - next.X * current.Y;
+            }
+            return twiceArea * 0.5;
         }
 
         public static bool TryGetExtents (Entity entity, out Extents3d extents)

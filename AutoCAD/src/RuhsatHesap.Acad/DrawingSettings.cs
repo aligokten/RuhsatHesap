@@ -80,6 +80,9 @@ namespace RuhsatHesap.Acad
         public string ActiveBlock = "A";
         /// <summary>Text height of the tables drawn into model space.</summary>
         public double TableTextHeight;
+        /// <summary>Text style the tables are written with. Created from the
+        /// matching font when the drawing does not have it yet.</summary>
+        public string TableTextStyle = "ISOCPEUR";
         /// <summary>Whether RHETIKET also draws a visible label.</summary>
         public bool WriteLabels = true;
         public string LabelLayer = "RH-ETIKET";
@@ -96,6 +99,7 @@ namespace RuhsatHesap.Acad
             root["activeFloor"] = JsonValue.String (ActiveFloor);
             root["activeBlock"] = JsonValue.String (ActiveBlock);
             root["tableTextHeight"] = JsonValue.Number (TableTextHeight);
+            root["tableTextStyle"] = JsonValue.String (TableTextStyle);
             root["writeLabels"] = JsonValue.Bool (WriteLabels);
             root["labelLayer"] = JsonValue.String (LabelLayer);
             return root.ToJson (false);
@@ -113,6 +117,8 @@ namespace RuhsatHesap.Acad
             settings.ActiveBlock = root["activeBlock"].AsString ("A");
             if (settings.ActiveBlock.Length == 0) settings.ActiveBlock = "A";
             settings.TableTextHeight = root["tableTextHeight"].AsDouble ();
+            string textStyle = root["tableTextStyle"].AsString ();
+            if (textStyle.Length > 0) settings.TableTextStyle = textStyle;
             settings.WriteLabels = root["writeLabels"].AsBool (true);
             string layer = root["labelLayer"].AsString ();
             if (layer.Length > 0) settings.LabelLayer = layer;

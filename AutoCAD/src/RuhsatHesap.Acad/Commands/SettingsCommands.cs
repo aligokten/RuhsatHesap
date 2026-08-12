@@ -87,6 +87,11 @@ namespace RuhsatHesap.Acad.Commands
                 if (textHeight == null) return;
                 settings.TableTextHeight = textHeight.Value;
 
+                string textStyle = AcadUi.AskString (editor,
+                    "Tablo yazı tipi / stil adı", settings.TableTextStyle);
+                if (textStyle == null) return;
+                settings.TableTextStyle = textStyle;
+
                 settings.WriteLabels = AcadUi.AskYesNo (editor, "Etiketlerken görünür yazı da eklensin mi? [Evet/Hayir]", settings.WriteLabels);
 
                 DrawingStore.SaveSettings (database, settings);
@@ -278,6 +283,8 @@ namespace RuhsatHesap.Acad.Commands
             AcadUi.Write (editor, "Aktif blok / kat : " + settings.ActiveBlock + " / " +
                 (settings.ActiveFloor.Length > 0 ? settings.ActiveFloor : "(tanımsız)"));
             AcadUi.Write (editor, "Tablo yazı yük.  : " + TextUtil.FormatArea (settings.EffectiveTextHeight, 3));
+            AcadUi.Write (editor, "Tablo yazı tipi  : " +
+                (settings.TableTextStyle.Length > 0 ? settings.TableTextStyle : "(tablo stilinden)"));
         }
 
         /// <summary>Lets the user select outlines and returns their total area in m².</summary>
