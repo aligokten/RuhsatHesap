@@ -146,6 +146,14 @@ dokunmaz.
 `RHTARA` tekrar tekrar çalıştırılabilir: her seferinde yalnız kendi yazdığı
 değerleri yeniler, elle girdiğiniz kalemlere dokunmaz.
 
+`RHTARA` ayrıca aynı kaleme (aynı blok+kat+tip ya da aynı blok+bağımsız
+bölüm+tip) düşen iki nesnenin alanı neredeyse birebir aynıysa (%0,2 tolerans)
+uyarır: bu, bir bölgenin hem taralı (HATCH) hem sınır çizgisiyle
+(polyline/region) etiketlenip iki kez sayılmasının tipik belirtisidir —
+hesaplanan alan gerçekte olması gerekenin yaklaşık iki katı çıkar. Uyarı iki
+nesnenin handle'ını (`<...>`) adı geçirir; ilgili nesneleri `RHSOR` ile
+bulup yalnızca birinde etiket bırakın.
+
 ### Tablolar
 
 | Komut | Tablo |
@@ -160,6 +168,17 @@ değerleri yeniler, elle girdiğiniz kalemlere dokunmaz.
 | `RHOZET` | Parsel, TAKS/KAKS kontrolleri, ağaç, otopark özeti |
 | `RHOTOPARKAGAC` | Otopark ve ağaç hesabı — yönetmelik aralıkları ve bağımsız bölüm bazında açıklamalı |
 | `RHTABLOLAR` | Yukarıdaki tabloların tamamı, alt alta |
+| `RHTABLOTEMIZLE` | `RH-TABLO` katmanındaki eski tabloları siler |
+
+`RHEMSAL`, `RHBB`, `RHINSAAT`, `RHINSAATALANI`, `RHIRTIFAK`, `RHOZET`,
+`RHOTOPARKAGAC` ve `RHTABLOLAR` proje geneli tablolar oldukları için, çizimde
+`RH-TABLO` katmanında önceden çizilmiş bir tablo bulurlarsa yeni tablo
+çizilmeden önce "eskiler silinsin mi?" diye sorar (varsayılan: Evet). Bu,
+`RHTARA` ile yeniden taradıktan sonra canvasta eski/güncel olmayan bir
+tablonun kalıp kafa karıştırmasını önler — isterseniz aynı işi elle
+`RHTABLOTEMIZLE` ile de yapabilirsiniz. `RHALANTABLO`/`RHALANOZET` seçim
+tabanlı anlık görüntüler olduğu için bu sorguyu yapmaz, birikmeleri
+beklenen davranıştır.
 
 Tablolar `RH-TABLO` katmanına, seçtiğiniz noktadan başlayarak yerleştirilir ve
 normal AutoCAD tablosu oldukları için tablo stiliyle biçimlendirilebilir.

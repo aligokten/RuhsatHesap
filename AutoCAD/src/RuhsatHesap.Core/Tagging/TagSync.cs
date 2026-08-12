@@ -98,6 +98,7 @@ namespace RuhsatHesap.Core.Tagging
                 project.AuxiliaryData = JsonValue.NewObject ();
 
             ClearPreviousImport (project);
+            DetectDuplicateAreas (observations, result);
 
             var unitAggregates = new Dictionary<string, UnitAggregate> (StringComparer.Ordinal);
             var floorAggregates = new Dictionary<string, FloorAggregate> (StringComparer.Ordinal);
@@ -291,6 +292,82 @@ namespace RuhsatHesap.Core.Tagging
                 result.AddProblem ("Aynı kat farklı yazılmış ve birleştirildi: " +
                     string.Join (" / ", spellings.OrderBy (value => value, StringComparer.Ordinal)) +
                     " — tek bir yazım kullanmanız önerilir.");
+            }
+        }
+
+        /// <summary>
+        /// A very common AutoCAD habit is drawing a closed boundary and then
+        /// hatching it for a fill -- and if both the boundary curve and the
+        /// hatch get selected and etiketlenmiş the same way, RHTARA sums the
+        /// identical region twice, doubling the result. A hatch's area and its
+        /// boundary curve's area are computed by different code paths inside
+        /// AutoCAD but describe the same geometry, so they land within a
+        /// fraction of a percent of each other -- close enough that two
+        /// independently drawn rooms essentially never coincide by accident,
+        /// but a hatch/boundary pair always does. Flags the pair by handle so
+        /// the user can remove one etiket instead of the total being silently
+        /// wrong.
+        /// </summary>
+        private static void DetectDuplicateAreas (IReadOnlyList<AreaObservation> observations, TagSyncResult result)
+        {
+            const double RelativeTolerance = 0.002; // %0.2
+
+            var buckets = new Dictionary<string, List<AreaObservation>> (StringComparer.Ordinal);
+            foreach (AreaObservation observation in observations) {
+                RuhsatTag tag = observation.Tag;
+                if (!tag.IsRuhsatTag || !tag.Valid || observation.Area <= 0.0) continue;
+                string key = DuplicateBucketKey (tag);
+                if (key == null) continue;
+                if (!buckets.TryGetValue (key, out List<AreaObservation> list)) {
+                    list = new List<AreaObservation> ();
+                    buckets[key] = list;
+                }
+                list.Add (observation);
+            }
+
+            foreach (List<AreaObservation> list in buckets.Values) {
+                if (list.Count < 2) continue;
+                for (int first = 0; first < list.Count; first++) {
+                    for (int second = first + 1; second < list.Count; second++) {
+                        double areaA = list[first].Area;
+                        double areaB = list[second].Area;
+                        double relativeDifference = Math.Abs (areaA - areaB) / Math.Max (areaA, areaB);
+                        if (relativeDifference > RelativeTolerance) continue;
+                        result.AddProblem ("<" + list[first].Handle + "> ve <" + list[second].Handle +
+                            "> neredeyse birebir aynı alana sahip (" + TextUtil.FormatArea (areaA) + " ve " +
+                            TextUtil.FormatArea (areaB) + " m²) ve aynı kaleme yazılıyor — aynı bölgeyi hem " +
+                            "taralı (HATCH) hem sınır çizgisiyle (polyline/region) etiketlemiş olabilirsiniz; " +
+                            "ikisi birden sayılırsa alan iki katına çıkar. Yalnız birini etiketleyin.");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Groups an etiket into the same bucket another etiket lands in only
+        /// when the two would add into the exact same cell of a table --
+        /// same bağımsız bölüm alanı, or same kat + TIP. Returns null for
+        /// kalemler that are legitimately allowed to repeat with the same area
+        /// (İSTİNAT, EK_YAPI -- distinct walls or buildings can coincidentally
+        /// share a size) and for CustomFloorArea, whose column is only resolved
+        /// once project context is available, later in Sync.
+        /// </summary>
+        private static string DuplicateBucketKey (RuhsatTag tag)
+        {
+            if (RuhsatTag.IsUnitAreaKind (tag.Kind))
+                return "U|" + tag.BlockName + "|" + tag.UnitNumber.Trim () + "|" + tag.Kind;
+            switch (tag.Kind) {
+                case AreaKind.Stair:
+                case AreaKind.Hall:
+                case AreaKind.Eave:
+                case AreaKind.Elevator:
+                case AreaKind.Shelter:
+                case AreaKind.Emsal:
+                case AreaKind.EmsalOutside:
+                    return "F|" + tag.BlockName + "|" + TextUtil.NormalizeFloorKey (tag.FloorName) + "|" + tag.Kind;
+                case AreaKind.ParcelBoundary: return "P";
+                case AreaKind.BuildingFootprint: return "T";
+                default: return null;
             }
         }
 

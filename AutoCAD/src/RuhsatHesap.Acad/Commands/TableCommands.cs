@@ -102,10 +102,35 @@ namespace RuhsatHesap.Acad.Commands
                 if (!EnsureProjectData (editor, project)) return;
 
                 IReadOnlyList<ReportTable> tables = ReportBuilder.AllProjectTables (project);
-                if (!InsertTables (document, settings, tables, "Tabloların sol üst köşesini belirtin")) return;
+                if (!InsertTables (document, settings, tables, "Tabloların sol üst köşesini belirtin", true)) return;
                 AcadUi.Write (editor, tables.Count + " tablo çizildi.");
             } catch (System.Exception exception) {
                 AcadUi.Write (editor, "Tablolar oluşturulamadı: " + exception.Message);
+            }
+        }
+
+        /// <summary>
+        /// Erases every Ruhsat Hesap tablosu (RH-TABLO katmanı) in the model
+        /// uzayı and the active çıktı düzeni. RHTABLOLAR draws a brand new copy
+        /// each time rather than updating one in place, so after a re-tarama a
+        /// stale table can sit on the canvas next to the fresh one, showing an
+        /// outdated kat list -- this clears that ambiguity in one step.
+        /// </summary>
+        [CommandMethod ("RHTABLOTEMIZLE", CommandFlags.Modal)]
+        public void ClearTables ()
+        {
+            Document document = AcadUi.ActiveDocument;
+            if (document == null) return;
+            Editor editor = document.Editor;
+            Database database = document.Database;
+
+            using (document.LockDocument ())
+            using (Transaction transaction = database.TransactionManager.StartTransaction ()) {
+                int erased = EraseExistingTables (database, transaction);
+                transaction.Commit ();
+                AcadUi.Write (editor, erased > 0
+                    ? erased + " tablo silindi."
+                    : "RH-TABLO katmanında silinecek tablo bulunamadı.");
             }
         }
 
@@ -122,7 +147,7 @@ namespace RuhsatHesap.Acad.Commands
                 if (!EnsureProjectData (editor, project)) return;
 
                 ReportTable table = builder (project);
-                if (!InsertTables (document, settings, new[] { table }, "Tablonun sol üst köşesini belirtin")) return;
+                if (!InsertTables (document, settings, new[] { table }, "Tablonun sol üst köşesini belirtin", true)) return;
                 AcadUi.Write (editor, table.Title + " çizildi.");
             } catch (System.Exception exception) {
                 AcadUi.Write (editor, "Tablo oluşturulamadı: " + exception.Message);
@@ -137,10 +162,32 @@ namespace RuhsatHesap.Acad.Commands
             return false;
         }
 
+        /// <param name="offerToReplaceOld">
+        /// Ruhsat hesap tablolarını yeniden çizen komutlar için true: RHTARA
+        /// sonrası tekrar çalıştırıldığında, eski (artık güncel olmayan) tablo
+        /// canvasta kalıp kafa karıştırmasın diye önce silinmesi önerilir.
+        /// Seçime dayalı RHALANTABLO/RHALANOZET için false -- o tablolar birer
+        /// anlık görüntüdür, birikmeleri beklenen bir davranıştır.
+        /// </param>
         private static bool InsertTables (Document document, DrawingSettings settings,
-            IEnumerable<ReportTable> tables, string message)
+            IEnumerable<ReportTable> tables, string message, bool offerToReplaceOld = false)
         {
             Editor editor = document.Editor;
+            Database database = document.Database;
+
+            if (offerToReplaceOld) {
+                int existing = CountExistingTables (database);
+                if (existing > 0 && AcadUi.AskYesNo (editor,
+                        existing + " adet önceki Ruhsat Hesap tablosu bulundu. Yeni tablo(lar) çizilmeden önce " +
+                        "eskiler silinsin mi? [Evet/Hayır]", true)) {
+                    using (document.LockDocument ())
+                    using (Transaction transaction = database.TransactionManager.StartTransaction ()) {
+                        EraseExistingTables (database, transaction);
+                        transaction.Commit ();
+                    }
+                }
+            }
+
             Point3d? position = AcadUi.PickPoint (editor, message);
             if (position == null) {
                 AcadUi.Write (editor, "Yerleştirme iptal edildi.");
@@ -148,12 +195,51 @@ namespace RuhsatHesap.Acad.Commands
             }
 
             using (document.LockDocument ())
-            using (Transaction transaction = document.Database.TransactionManager.StartTransaction ()) {
-                BlockTableRecord space = AcadUi.CurrentSpace (document.Database, transaction);
-                TableRenderer.InsertStack (document.Database, transaction, space, tables, position.Value, settings);
+            using (Transaction transaction = database.TransactionManager.StartTransaction ()) {
+                BlockTableRecord space = AcadUi.CurrentSpace (database, transaction);
+                TableRenderer.InsertStack (database, transaction, space, tables, position.Value, settings);
                 transaction.Commit ();
             }
             return true;
+        }
+
+        /// <summary>Model uzayı ve aktif düzendeki RH-TABLO katmanlı tablo sayısı.</summary>
+        private static int CountExistingTables (Database database)
+        {
+            using (Transaction transaction = database.TransactionManager.StartTransaction ()) {
+                int count = CountOrEraseTables (database, transaction, erase: false);
+                transaction.Commit ();
+                return count;
+            }
+        }
+
+        private static int EraseExistingTables (Database database, Transaction transaction) =>
+            CountOrEraseTables (database, transaction, erase: true);
+
+        private static int CountOrEraseTables (Database database, Transaction transaction, bool erase)
+        {
+            int total = 0;
+            foreach (ObjectId spaceId in new[] { GetModelSpaceId (database, transaction), database.CurrentSpaceId }) {
+                if (spaceId.IsNull || spaceId.IsErased) continue;
+                var space = (BlockTableRecord) transaction.GetObject (spaceId, OpenMode.ForRead);
+                foreach (ObjectId id in space) {
+                    if (id.IsErased) continue;
+                    if (!(transaction.GetObject (id, OpenMode.ForRead) is Table table)) continue;
+                    if (!string.Equals (table.Layer, TableRenderer.TableLayer, StringComparison.OrdinalIgnoreCase)) continue;
+                    total++;
+                    if (erase) {
+                        table.UpgradeOpen ();
+                        table.Erase ();
+                    }
+                }
+            }
+            return total;
+        }
+
+        private static ObjectId GetModelSpaceId (Database database, Transaction transaction)
+        {
+            var blockTable = (BlockTable) transaction.GetObject (database.BlockTableId, OpenMode.ForRead);
+            return blockTable[BlockTableRecord.ModelSpace];
         }
     }
 }

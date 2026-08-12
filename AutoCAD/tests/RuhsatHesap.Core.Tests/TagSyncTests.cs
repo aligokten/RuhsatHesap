@@ -292,5 +292,55 @@ namespace RuhsatHesap.Core.Tests
             Assert.Equal (9.0, project.ExtraStructures.Single (item => item.Name == "Foseptik").Area, 2);
             Assert.Equal (5.0, project.ExtraStructures.Single (item => item.Name == "Elle Eklenen Su Deposu").Area, 2);
         }
+
+        [Fact]
+        public void NearIdenticalAreasInTheSameBucketWarnAboutDoubleTagging ()
+        {
+            // Bir HATCH ve onu çevreleyen sınır polyline'ının ikisi de aynı
+            // kaleme (BLOK+KAT+TIP) etiketlenmişse, alan neredeyse 2 katına
+            // çıkar -- bu, kullanıcının bildirdiği "2x katı" hatasının en
+            // olası nedenidir.
+            var project = new ProjectData ();
+            TagSyncResult result = TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|BLOK=A|KAT=Zemin|TIP=EMSAL", 46.40, "Zemin", "200"),
+                Observation ("RH|BLOK=A|KAT=Zemin|TIP=EMSAL", 46.41, "Zemin", "201")
+            });
+
+            Assert.Contains (result.Problems, message =>
+                message.Contains ("<200>") && message.Contains ("<201>") &&
+                message.Contains ("aynı alana sahip"));
+
+            // Her ikisi de aynı katman toplamına eklendiği için değer de
+            // gerçekte tek bir alanın iki katı olur -- bu, uyarının işaret
+            // ettiği asıl hatalı sonuçtur.
+            FloorRecord floor = project.Blocks[0].Floors.Single ();
+            Assert.Equal (92.81, floor.EmsalArea, 2);
+        }
+
+        [Fact]
+        public void GenuinelyDifferentAreasInTheSameBucketDoNotWarn ()
+        {
+            var project = new ProjectData ();
+            TagSyncResult result = TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|BLOK=A|KAT=Zemin|TIP=EMSAL", 46.40, "Zemin", "200"),
+                Observation ("RH|BLOK=A|KAT=1|TIP=EMSAL", 51.20, "1", "201")
+            });
+
+            Assert.DoesNotContain (result.Problems, message => message.Contains ("aynı alana sahip"));
+        }
+
+        [Fact]
+        public void DuplicateUnitAreasAlsoWarn ()
+        {
+            var project = new ProjectData ();
+            TagSyncResult result = TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|BLOK=A|BB=01|TIP=NET", 75.00, "Zemin", "300"),
+                Observation ("RH|BLOK=A|BB=01|TIP=NET", 75.01, "Zemin", "301")
+            });
+
+            Assert.Contains (result.Problems, message =>
+                message.Contains ("<300>") && message.Contains ("<301>") &&
+                message.Contains ("aynı alana sahip"));
+        }
     }
 }
