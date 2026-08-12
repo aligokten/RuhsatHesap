@@ -89,7 +89,9 @@ namespace RuhsatHesap.Acad
             }
         }
 
-        private static double LoopArea (HatchLoop loop)
+        private static double LoopArea (HatchLoop loop) => Math.Abs (ShoelaceArea (LoopPoints (loop)));
+
+        private static List<Point2d> LoopPoints (HatchLoop loop)
         {
             var points = new List<Point2d> ();
             if ((loop.LoopType & HatchLoopTypes.Polyline) != 0) {
@@ -107,7 +109,33 @@ namespace RuhsatHesap.Acad
                     }
                 }
             }
-            return Math.Abs (ShoelaceArea (points));
+            return points;
+        }
+
+        /// <summary>
+        /// The hatch's outer boundary as a polygon, ignoring island (cut-out)
+        /// loops -- good enough for point-in-polygon containment tests, which
+        /// only need the outer shape. Only the first outer loop is used, so a
+        /// hatch made of several disjoint regions is approximated by just one
+        /// of them; RHTARA has no use case yet where that distinction matters.
+        /// </summary>
+        private static List<Point2d> HatchOuterLoopPolygon (Hatch hatch)
+        {
+            try {
+                for (int index = 0; index < hatch.NumberOfLoops; index++) {
+                    HatchLoop loop = hatch.GetLoopAt (index);
+                    bool isOuter = (loop.LoopType & HatchLoopTypes.External) != 0 ||
+                                   (loop.LoopType & HatchLoopTypes.Outermost) != 0 ||
+                                   hatch.NumberOfLoops == 1;
+                    if (!isOuter) continue;
+                    List<Point2d> points = LoopPoints (loop);
+                    if (points.Count >= 3) return points;
+                }
+            } catch (System.Exception) {
+                // Falls through to an empty polygon; SamplePolygon then uses
+                // the bounding-box fallback.
+            }
+            return new List<Point2d> ();
         }
 
         public static double ShoelaceArea (IList<Point2d> polygon)
@@ -163,6 +191,19 @@ namespace RuhsatHesap.Acad
         /// </summary>
         public static List<Point2d> SamplePolygon (Entity entity)
         {
+            // Hatch is neither a Curve nor a Polyline, so without this it fell
+            // straight through to the bounding-box fallback below -- wrong for
+            // an L-shaped or otherwise concave hatched alan (a very common
+            // case: users hatch the floor fill and etiketler the hatch), since
+            // its bounding box reaches past the true outline and can make an
+            // unrelated nearby object look contained.
+            if (entity is Hatch hatch) {
+                List<Point2d> loopPoints = HatchOuterLoopPolygon (hatch);
+                if (loopPoints.Count >= 3) return loopPoints;
+                // Falls through to the bounding-box fallback for hatches whose
+                // loops could not be read (e.g. non-associative hatches).
+            }
+
             var points = new List<Point2d> ();
             if (entity is Polyline lightweight && !HasBulge (lightweight)) {
                 for (int index = 0; index < lightweight.NumberOfVertices; index++) {
