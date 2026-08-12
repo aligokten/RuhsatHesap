@@ -4,7 +4,10 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.DatabaseServices;
+// Autodesk.AutoCAD.DatabaseServices is deliberately not imported here: it
+// declares its own Font type, which would make every System.Drawing.Font in a
+// Windows Forms control ambiguous. The panel talks to the drawing through
+// DrawingStore instead.
 using RuhsatHesap.Core;
 using RuhsatHesap.Core.Model;
 using RuhsatHesap.Core.Tagging;
@@ -289,15 +292,25 @@ namespace RuhsatHesap.Acad.Ui
             SetStatus (command + " çalıştırıldı. Sonucu görmek için Yenile'ye basın.");
         }
 
+        /// <summary>
+        /// Runs a selection from a palette button. The drawing window has to
+        /// take the focus first and the document has to be locked, otherwise
+        /// the prompt has nowhere to read the pick from.
+        /// </summary>
         private void MeasureInto (TextBox box, string prompt)
         {
             Document document = AcadApp.DocumentManager.MdiActiveDocument;
             if (document == null) return;
             try {
                 DrawingSettings settings = DrawingStore.LoadSettings (document.Database);
-                double? measured = Commands.SettingsCommands.MeasureSelection (document, settings, prompt);
+                AcadApp.MainWindow.Focus ();
+                double? measured;
+                using (DocumentLock documentLock = document.LockDocument ()) {
+                    measured = Commands.SettingsCommands.MeasureSelection (document, settings, prompt);
+                }
                 if (measured == null) return;
                 box.Text = TextUtil.FormatArea (measured.Value);
+                SetStatus ("Ölçülen alan forma yazıldı: " + box.Text + " m²");
             } catch (System.Exception exception) {
                 SetStatus ("Ölçülemedi: " + exception.Message);
             }
