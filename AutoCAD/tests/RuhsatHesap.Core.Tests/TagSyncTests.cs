@@ -144,6 +144,45 @@ namespace RuhsatHesap.Core.Tests
         }
 
         [Fact]
+        public void RetainingWallsAreListedInNameOrder ()
+        {
+            // Tarama duvarları çizimdeki nesne sırasıyla görür; tablo ise ada
+            // göre sıralı olmalı. Sayılar da sayısal sıralanmalı: "2" < "10".
+            var project = new ProjectData ();
+            TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|TIP=ISTINAT|AD=İstinat Duvarı 10", 10.0, "", "201"),
+                Observation ("RH|TIP=ISTINAT|AD=Batı İstinat", 20.0, "", "202"),
+                Observation ("RH|TIP=ISTINAT|AD=İstinat Duvarı 2", 30.0, "", "203"),
+                Observation ("RH|TIP=ISTINAT|AD=Alt Kot İstinat", 40.0, "", "204")
+            });
+
+            Assert.Equal (
+                new[] { "Alt Kot İstinat", "Batı İstinat", "İstinat Duvarı 2", "İstinat Duvarı 10" },
+                project.RetainingWalls.Select (wall => wall.Name).ToArray ());
+
+            // Tablo listeyi olduğu gibi okur, sıralama oraya da yansır.
+            ReportTable table = ReportBuilder.RetainingWalls (project);
+            Assert.Equal (
+                new[] { "Alt Kot İstinat", "Batı İstinat", "İstinat Duvarı 2", "İstinat Duvarı 10" },
+                table.Rows.Where (row => row.Kind == RowKind.Data)
+                    .Select (row => row.Cells[0].Text).ToArray ());
+        }
+
+        [Fact]
+        public void ManuallyAddedRetainingWallsSortInWithScannedOnes ()
+        {
+            var project = new ProjectData ();
+            project.RetainingWalls.Add (new RetainingWall { Name = "Elle Eklenen Duvar", Area = 5.0 });
+            TagSync.Sync (project, new List<AreaObservation> {
+                Observation ("RH|TIP=ISTINAT|AD=Batı İstinat", 20.0, "", "205")
+            });
+
+            Assert.Equal (
+                new[] { "Batı İstinat", "Elle Eklenen Duvar" },
+                project.RetainingWalls.Select (wall => wall.Name).ToArray ());
+        }
+
+        [Fact]
         public void RepeatedScanIsIdempotent ()
         {
             var project = new ProjectData ();

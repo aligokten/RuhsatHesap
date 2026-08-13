@@ -513,6 +513,7 @@ namespace RuhsatHesap.Acad.Ui
             ApplySiteGrids ();
             _project.SortUnits ();
             _project.SortFloors ();
+            _project.SortRetainingWalls ();
         }
 
         /// <summary>

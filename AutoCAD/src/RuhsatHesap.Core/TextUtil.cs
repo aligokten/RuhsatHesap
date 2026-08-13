@@ -192,6 +192,20 @@ namespace RuhsatHesap.Core
         }
 
         /// <summary>
+        /// Natural ordering for free-form names -- istinat duvarları, ek
+        /// yapılar and anything else the user types a name for. Same algorithm
+        /// as <see cref="CompareUnitNumbers"/>, which is not specific to unit
+        /// numbers: it compares digit runs numerically, so "İstinat Duvarı 2"
+        /// sorts before "İstinat Duvarı 10" rather than after it, and folds
+        /// case without depending on the machine's culture.
+        /// </summary>
+        public sealed class NaturalNameComparer : IComparer<string>
+        {
+            public static readonly NaturalNameComparer Instance = new NaturalNameComparer ();
+            public int Compare (string left, string right) => CompareUnitNumbers (left, right);
+        }
+
+        /// <summary>
         /// Folds a floor name down to a comparison key: same normalization as
         /// <see cref="Normalize"/>, with every whitespace character removed
         /// entirely rather than just collapsed. Spacing around a kat name

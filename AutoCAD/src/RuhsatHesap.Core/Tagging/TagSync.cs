@@ -314,6 +314,7 @@ namespace RuhsatHesap.Core.Tagging
 
             project.SortUnits ();
             project.SortFloors ();
+            project.SortRetainingWalls ();
             return result;
         }
 

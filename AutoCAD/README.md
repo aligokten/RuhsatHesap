@@ -115,6 +115,11 @@ Form üç sekmelidir:
   `RH|TIP=EK_YAPI|AD=Foseptik` (istinat için `RH|TIP=ISTINAT|AD=…`) etiketini
   kullanın — bu etiketler de `BLOK`/`KAT` istemez.
 
+İstinat duvarları hem bu sekmede hem de tablolarda **ada göre** sıralanır;
+elle girilenler ile çizimden okunanlar aynı sırada yer alır. Addaki sayılar
+sayısal karşılaştırılır, yani `İstinat Duvarı 2`, `İstinat Duvarı 10`'dan
+önce gelir.
+
 Üstteki düğmeler: **Yenile**, **Kaydet** (formu çizime yazar), **Çizimi Tara**
 (`RHTARA`), **Tabloları Çiz** (`RHTABLOLAR`), **Excel**, **JSON Kaydet**.
 Alt satırda hesaplanan emsal, emsal bakiyesi/aşımı, bağımsız bölüm sayısı, yapı

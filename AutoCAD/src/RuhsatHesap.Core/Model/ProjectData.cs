@@ -210,5 +210,23 @@ namespace RuhsatHesap.Core.Model
                 block.Floors.AddRange (ordered);
             }
         }
+
+        /// <summary>
+        /// Orders istinat duvarları by name. Without this they keep whatever
+        /// order the tarama happened to meet them in, which is the drawing's
+        /// entity order -- effectively arbitrary, and different again after a
+        /// re-scan. Every consumer (the İstinat Duvarı Alan Hesabı tablosu
+        /// RHTABLOLAR draws, the panel grid, the Excel sheet, the CSV and the
+        /// JSON) reads the list in order, so sorting it here settles all of
+        /// them at once.
+        /// </summary>
+        public void SortRetainingWalls ()
+        {
+            List<RetainingWall> ordered = RetainingWalls
+                .OrderBy (wall => wall.Name, TextUtil.NaturalNameComparer.Instance)
+                .ToList ();
+            RetainingWalls.Clear ();
+            RetainingWalls.AddRange (ordered);
+        }
     }
 }
