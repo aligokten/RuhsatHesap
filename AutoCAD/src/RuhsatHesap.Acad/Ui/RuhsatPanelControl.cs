@@ -47,9 +47,16 @@ namespace RuhsatHesap.Acad.Ui
         private readonly DataGridView _floorGrid = NewGrid ();
         private readonly DataGridView _extraGrid = NewGrid ();
         private readonly DataGridView _wallGrid = NewGrid ();
-        private readonly Label _status = new Label {
-            Dock = DockStyle.Bottom, Height = 46, Padding = new Padding (8, 4, 8, 4),
-            TextAlign = ContentAlignment.MiddleLeft
+        /// <summary>
+        /// The live emsal/otopark summary plus the last action's message. A
+        /// read-only multiline text box rather than a Label: the line is long
+        /// enough to be cut off in a docked palette, so it has to wrap, scroll
+        /// and let the user select the numbers to copy them.
+        /// </summary>
+        private readonly TextBox _status = new TextBox {
+            Dock = DockStyle.Bottom, Height = 84, Multiline = true, ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical, BorderStyle = BorderStyle.FixedSingle,
+            BackColor = SystemColors.Control, TabStop = false
         };
 
         /// <summary>
@@ -117,8 +124,14 @@ namespace RuhsatHesap.Acad.Ui
         private TabPage BuildParcelTab ()
         {
             var page = new TabPage ("Parsel") { Padding = new Padding (6), AutoScroll = true };
+            // Docked Top (not Fill) with AutoSize: the standard scrollable-form
+            // pairing, where the panel grows to the height its rows need and
+            // the page scrolls over it. Dock.Fill together with AutoSize
+            // contradict each other and left the last row's label stranded.
             var layout = new TableLayoutPanel {
-                Dock = DockStyle.Fill, ColumnCount = 2, AutoScroll = true, AutoSize = true
+                Dock = DockStyle.Top, ColumnCount = 2, RowCount = 0, AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                GrowStyle = TableLayoutPanelGrowStyle.AddRows
             };
             layout.ColumnStyles.Add (new ColumnStyle (SizeType.Absolute, 170));
             layout.ColumnStyles.Add (new ColumnStyle (SizeType.Percent, 100));
@@ -288,12 +301,26 @@ namespace RuhsatHesap.Acad.Ui
             return button;
         }
 
+        /// <summary>
+        /// Places the label and its field in the same explicit row. Letting
+        /// TableLayoutPanel assign cells implicitly drifted the pairing once
+        /// the rows outgrew the (unset) RowCount, which is how "Projede
+        /// ayrılan otopark" ended up far from its own text box.
+        /// </summary>
         private static void AddRow (TableLayoutPanel layout, string label, Control field)
         {
+            int row = layout.RowCount;
+            layout.RowCount = row + 1;
+            layout.RowStyles.Add (new RowStyle (SizeType.AutoSize));
+
+            // Both sides anchored Left only, so each is centred against the
+            // other in the row's height whatever the field turns out to be --
+            // a text box, a combo, or a text box with a button beside it.
             layout.Controls.Add (new Label {
-                Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding (0, 6, 6, 0)
-            });
-            layout.Controls.Add (field);
+                Text = label, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding (0, 3, 6, 3)
+            }, 0, row);
+            field.Anchor = AnchorStyles.Left;
+            layout.Controls.Add (field, 1, row);
         }
 
         private void UpdateEmsalMethodFields ()
@@ -670,7 +697,8 @@ namespace RuhsatHesap.Acad.Ui
                 "BB: " + summary.UnitCount + "   ·   Yapı inşaat: " +
                 TextUtil.FormatArea (summary.ConstructionArea) + " m²   ·   Otopark: " +
                 summary.RequiredParkingSpaces + " gerekli / " + _project.ProvidedParkingSpaces + " ayrılan" +
-                (string.IsNullOrEmpty (message) ? string.Empty : "\n" + message);
+                // A multiline TextBox only breaks on a full CRLF.
+                (string.IsNullOrEmpty (message) ? string.Empty : "\r\n" + message);
         }
     }
 }
