@@ -16,7 +16,7 @@
     <Product>Ruhsat Hesap</Product>
     <Company>Ali Gökten</Company>
     <Copyright>© 2026 Ali Gökten</Copyright>
-    <Version>0.6.0</Version>
+    <Version>0.7.0</Version>
     <Deterministic>true</Deterministic>
     <!-- AutoCAD loads the add-in into its own AppDomain; copying AutoCAD's own
          assemblies next to the plug-in would shadow the running ones. -->
@@ -24,14 +24,20 @@
     <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
-  <!-- The RHPANEL form and the AutoCAD file dialogs are Windows Forms. -->
+  <!-- The RHPANEL form and the AutoCAD file dialogs are Windows Forms; the
+       ribbon sekmesi (AdWindows) and its run-time drawn icons are WPF. -->
   <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
     <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Drawing" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="WindowsBase" />
+    <Reference Include="System.Xaml" />
   </ItemGroup>
 
   <ItemGroup>

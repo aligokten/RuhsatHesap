@@ -5,10 +5,10 @@
   AutoCAD oturumunda kendiliğinden yüklenir; NETLOAD gerekmez.
 -->
 <ApplicationPackage SchemaVersion="1.0"
-                    AppVersion="0.6.0"
+                    AppVersion="0.7.0"
                     ProductCode="{3B1F4A62-9D74-4F0E-9E3B-7A2C4D915E11}"
                     Name="Ruhsat Hesap"
-                    Description="Mimari ruhsat projeleri için polyline alan hesabı, emsal ve ruhsat tabloları"
+                    Description="Mimari ruhsat projeleri için polyline alan hesabı, emsal, su deposu hesapları ve ruhsat tabloları"
                     Author="Ali Gökten"
                     ProductType="Application">
 
@@ -17,7 +17,7 @@
   <Components Description="AutoCAD 2019-2024 (.NET Framework 4.8)">
     <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R23.0" SeriesMax="R24.3" />
     <ComponentEntry AppName="RuhsatHesap"
-                    Version="0.6.0"
+                    Version="0.7.0"
                     ModuleName="./Contents/net48/RuhsatHesap.Acad.dll"
                     AppType=".Net"
                     LoadOnAutoCADStartup="True"
@@ -27,7 +27,7 @@
   <Components Description="AutoCAD 2025 ve sonrası (.NET 8)">
     <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R25.0" />
     <ComponentEntry AppName="RuhsatHesap"
-                    Version="0.6.0"
+                    Version="0.7.0"
                     ModuleName="./Contents/net8.0-windows/RuhsatHesap.Acad.dll"
                     AppType=".Net"
                     LoadOnAutoCADStartup="True"

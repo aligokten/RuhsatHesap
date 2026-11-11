@@ -21,34 +21,40 @@ açılabilir.
 
 ## Kurulum
 
-### Hazır paket (önerilen)
+### Kurulum programı (önerilen)
 
-1. [Releases](https://github.com/aligokten/RuhsatHesap/releases) sayfasından
-   `RuhsatHesap-AutoCAD-<sürüm>.zip` dosyasını indirin.
-2. Zip'in içindeki `RuhsatHesap.bundle` klasörünü şuraya kopyalayın:
+1. `RuhsatHesap-AutoCAD-Kurulum-<sürüm>.exe` dosyasını indirin:
+   [Releases](https://github.com/aligokten/RuhsatHesap/releases) sayfasından
+   ya da GitHub Actions → **Build AutoCAD Plugin** çalışmasının
+   `RuhsatHesap-AutoCAD-Kurulum` artifact'ından (90 gün saklanır).
+2. AutoCAD'i kapatın ve kurulumu çalıştırın. Yönetici yetkisi gerekmez;
+   kurulum eklentiyi `%APPDATA%\Autodesk\ApplicationPlugins\RuhsatHesap.bundle`
+   klasörüne yerleştirir. AutoCAD açıksa kapatmanızı bekler.
+3. AutoCAD'i açın. Üst şeritte **Ruhsat Hesap** sekmesi görünür; bütün
+   komutlar oradaki ikonlu düğmelerdedir.
 
-   ```
-   %APPDATA%\Autodesk\ApplicationPlugins\
-   ```
+Kurulum dosyası kod imzalı değildir; Windows SmartScreen "bilinmeyen yayıncı"
+uyarısı verirse *Ek bilgi → Yine de çalıştır* deyin. Kaldırmak için Windows
+*Uygulamalar* listesindeki "Ruhsat Hesap AutoCAD Eklentisi" kaydını kullanın.
 
-3. Kopyaladığınız klasördeki `.dll` dosyalarının **engelini kaldırın**.
-   İnternetten inen dosyaları Windows işaretler ve AutoCAD işaretli bir
-   assembly'i sessizce yüklemez.
-4. AutoCAD'i yeniden başlatın. Komut satırında `RHYARDIM` yazın.
+Sekme görünmezse şeridin açık olduğundan emin olun (`RIBBON`) ve `RHRIBBON`
+komutunu çalıştırın. Çalışma alanı (workspace) değiştirildiğinde sekme
+kendiliğinden yeniden eklenir.
 
-PowerShell ile tek seferde:
+### Elle kurulum (zip)
+
+1. `RuhsatHesap-AutoCAD-<sürüm>.zip` dosyasındaki `RuhsatHesap.bundle`
+   klasörünü `%APPDATA%\Autodesk\ApplicationPlugins\` altına kopyalayın.
+2. Klasördeki `.dll` dosyalarının **engelini kaldırın** (internetten inen
+   dosyaları Windows işaretler, AutoCAD işaretli assembly'i yüklemez).
+3. AutoCAD'i yeniden başlatın.
 
 ```powershell
-$zip  = "$env:USERPROFILE\Downloads\RuhsatHesap-AutoCAD-0.6.0.zip"
+$zip  = "$env:USERPROFILE\Downloads\RuhsatHesap-AutoCAD-0.7.0.zip"
 $dest = "$env:APPDATA\Autodesk\ApplicationPlugins"
 Expand-Archive $zip -DestinationPath $dest -Force
 Get-ChildItem "$dest\RuhsatHesap.bundle" -Recurse -Filter *.dll | Unblock-File
 ```
-
-Her `autocad-v*` etiketi **Release AutoCAD Plugin** iş akışını çalıştırıp yeni
-bir Release yayımlar. Ara derlemeler için GitHub Actions → **Build AutoCAD
-Plugin** çalışmasının `RuhsatHesap-AutoCAD-bundle` artifact'ı da kullanılabilir
-(90 gün saklanır).
 
 Paket hem `.NET Framework 4.8` (AutoCAD 2019–2024) hem de `.NET 8`
 (AutoCAD 2025 ve sonrası) sürümlerini içerir; AutoCAD kendi sürümüne uyanı
@@ -108,6 +114,8 @@ Form üç sekmelidir:
 * **Katlar / Emsal** — blok ve kat bazında emsal alanı ile emsal dışı alan.
   %30 istisna ve yapı inşaat kalemleri etiketlerden okunduğu için burada
   yalnız toplamları görünür.
+* **Depolar** — kullanma suyu, yangın suyu ve yağmur suyu deposu kabulleri;
+  gerekli hacimler alanlar değiştikçe yeniden hesaplanır.
 * **Ek Yapılar** — foseptik, su deposu, yağmur suyu deposu, trafo binası gibi
   **hiçbir bloka ait olmayan** yapılar ile istinat duvarları. Bu sekmede blok
   ve kat sütunu yoktur; yalnız ad ve alan girilir. Ek yapılar Yapı İnşaat Alanı
@@ -190,11 +198,12 @@ bildirir — ayrıntı için bkz. [ETIKET-STANDARDI.md](ETIKET-STANDARDI.md).
 | `RHIRTIFAK` | Kat irtifakı tablosu |
 | `RHOZET` | Parsel, TAKS/KAKS kontrolleri, ağaç, otopark özeti |
 | `RHOTOPARKAGAC` | Otopark ve ağaç hesabı — yönetmelik aralıkları ve bağımsız bölüm bazında açıklamalı |
+| `RHSUDEPOSU` | Kullanma suyu, yangın suyu ve yağmur suyu deposu hesabı — kabuller ve işlemle birlikte |
 | `RHTABLOLAR` | Yukarıdaki tabloların tamamı, alt alta |
 | `RHTABLOTEMIZLE` | `RH-TABLO` katmanındaki eski tabloları siler |
 
 `RHEMSAL`, `RHBB`, `RHINSAAT`, `RHINSAATALANI`, `RHIRTIFAK`, `RHOZET`,
-`RHOTOPARKAGAC` ve `RHTABLOLAR` proje geneli tablolar oldukları için, çizimde
+`RHOTOPARKAGAC`, `RHSUDEPOSU` ve `RHTABLOLAR` proje geneli tablolar oldukları için, çizimde
 `RH-TABLO` katmanında önceden çizilmiş bir tablo bulurlarsa yeni tablo
 çizilmeden önce "eskiler silinsin mi?" diye sorar (varsayılan: Evet). Bu,
 `RHTARA` ile yeniden taradıktan sonra canvasta eski/güncel olmayan bir
@@ -211,11 +220,39 @@ tamamen çizimdeki tablo stilindedir. Yazı tipi varsayılan olarak **ISOCPEUR**
 stil adı verebilirsiniz (boş bırakırsanız tablo stilinin kendi yazı stili
 kullanılır).
 
+### Su deposu hesapları
+
+Üç hesabın kabulleri RHPANEL'in **Depolar** sekmesinden girilir; sonuçlar
+sekmede anında, `RHSUDEPOSU` tablosunda işlemleriyle birlikte görünür. Her
+depo için "projede sağlanan hacim" girilirse tablo SAĞLANDI / YETERSİZ
+kontrolünü de yazar.
+
+| Depo | Hesap | Varsayılanlar |
+| --- | --- | --- |
+| Kullanma suyu | kişi × günlük tüketim × gün ÷ 1000 | BB başına 4 kişi, 150 L/kişi·gün, 1 gün |
+| Yangın suyu | (yağmurlama + yangın dolabı + hidrant debisi) × süre ÷ 1000 | Tehlike sınıfına göre: düşük 100 / 400 L/dak, 30 dak; orta 1-2 100 / 400, 60 dak; orta 3-4 100 / 1000, 60 dak; yüksek 200 / 1500, 90 dak |
+| Yağmur suyu | çatı izdüşüm alanı × yıllık yağış × çatı katsayısı × filtre verimi × %6 ÷ 1000 | çatı alanı = yapı oturum alanı, katsayı 0,8, filtre 0,9, oran %6 |
+
+* **Kullanma suyu** için bağlayıcı tek bir ülke geneli kural yoktur; kişi
+  sayısı, günlük tüketim ve depolama süresi idareden idareye değişir. Kişi
+  sayısını doğrudan da girebilirsiniz.
+* **Yangın suyu** debi ve süreleri Binaların Yangından Korunması Hakkında
+  Yönetmelik md. 92'deki tablodan gelir. Yalnız binada bulunan sistemler
+  toplanır (yangın dolabı ve hidrant için "Var" kutusu; yağmurlama için
+  tasarım yoğunluğu × operasyon alanı, yoksa 0).
+* **Yağmur suyu** Planlı Alanlar İmar Yönetmeliği'nin "yıllık toplanabilir
+  yağmur suyunun en az %6'sı" kuralını uygular (TS EN 16941-1). Yıllık yağış
+  ilin ortalamasıdır ve elle girilir; yönetmelik zorunluluğu 2000 m²'den
+  büyük parseller içindir, tablo parselin bu eşiğe göre durumunu da yazar.
+
+Bu değerler başlangıç kabulleridir; ruhsat dosyasına girmeden önce güncel
+yönetmelik metni ve ilgili idarenin şartlarıyla karşılaştırın.
+
 ### Aktarım
 
 | Komut | İşlevi |
 | --- | --- |
-| `RHEXCEL` | Yedi sayfalı `.xlsx` çalışma kitabı |
+| `RHEXCEL` | Her tablo ayrı sayfada `.xlsx` çalışma kitabı |
 | `RHCSV` | Tabloların tamamı tek `.csv` dosyasında |
 | `RHJSONKAYDET` | Proje verisi (`.json`) — web paneli ve Archicad ile ortak biçim |
 | `RHJSONAC` | Web panelinden veya Archicad'den gelen `.json` dosyasını okur |

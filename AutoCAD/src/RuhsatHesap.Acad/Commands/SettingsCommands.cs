@@ -22,12 +22,13 @@ namespace RuhsatHesap.Acad.Commands
 
             AcadUi.WriteHeader (editor, "RUHSAT HESAP — AUTOCAD EKLENTİSİ KOMUTLARI");
             editor.WriteMessage ("\n  Form");
-            editor.WriteMessage ("\n    RHPANEL       Verileri doldurabileceğiniz form penceresini açar/kapatır");
+            editor.WriteMessage ("\n    RHPANEL       Form penceresini açar/kapatır (parsel, BB, katlar, ek yapılar, depolar)");
             editor.WriteMessage ("\n    RHPANELYENILE Formu çizimdeki veriyle yeniler");
             editor.WriteMessage ("\n  Ayarlar");
             editor.WriteMessage ("\n    RHAYAR        Çizim birimi, aktif kat/blok ve tablo yazı yüksekliği");
             editor.WriteMessage ("\n    RHBIRIM       Yalnızca çizim birimini değiştirir (m / cm / mm)");
             editor.WriteMessage ("\n    RHKAT         Etiketlenecek aktif katı belirler");
+            editor.WriteMessage ("\n    RHRIBBON      Üst şeritteki Ruhsat Hesap sekmesini yeniden kurar");
             editor.WriteMessage ("\n    RHPARSEL      Parsel, ada, TAKS/KAKS bilgilerini girer");
             editor.WriteMessage ("\n    RHOTOPARK     Projede ayrılan otopark sayısını girer");
             editor.WriteMessage ("\n  Etiketleme");
@@ -45,6 +46,7 @@ namespace RuhsatHesap.Acad.Commands
             editor.WriteMessage ("\n    RHIRTIFAK     Kat irtifakı tablosu");
             editor.WriteMessage ("\n    RHOZET        Ruhsat hesap özeti");
             editor.WriteMessage ("\n    RHOTOPARKAGAC Otopark ve ağaç hesabı, yönetmelik aralıkları ve BB bazında açıklamalı");
+            editor.WriteMessage ("\n    RHSUDEPOSU    Kullanma suyu, yangın suyu ve yağmur suyu deposu hesabı");
             editor.WriteMessage ("\n    RHTABLOLAR    Bütün tabloları alt alta çizer");
             editor.WriteMessage ("\n    RHTABLOTEMIZLE Çizimdeki RH-TABLO katmanlı eski tabloları siler");
             editor.WriteMessage ("\n  Aktarım");

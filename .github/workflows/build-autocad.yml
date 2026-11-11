@@ -51,7 +51,31 @@ jobs:
           Copy-Item AutoCAD/src/RuhsatHesap.Acad/bin/Release/net48/RuhsatHesap.*.dll "$bundle/Contents/net48/"
           Copy-Item AutoCAD/src/RuhsatHesap.Acad/bin/Release/net8.0-windows/RuhsatHesap.*.dll "$bundle/Contents/net8.0-windows/"
           Copy-Item AutoCAD/README.md "$bundle/OKUBENI.md"
+          Copy-Item AutoCAD/ETIKET-STANDARDI.md "$bundle/ETIKET-STANDARDI.md"
           Get-ChildItem -Recurse $bundle | Select-Object FullName
+
+      # Tek dosyalık kurulum: bundle'ı kullanıcının ApplicationPlugins
+      # klasörüne yerleştirir, AutoCAD açıksa kapatılmasını bekler.
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup kurulamadı" }
+          }
+          $version = ([xml](Get-Content AutoCAD/bundle/PackageContents.xml -Raw)).ApplicationPackage.AppVersion
+          & $iscc "/DAppVersion=$version" "/DBundleDir=$PWD\artifacts\RuhsatHesap.bundle" "/DOutputDir=$PWD\artifacts\installer" "AutoCAD\installer\RuhsatHesap.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Kurulum dosyası derlenemedi" }
+          Get-ChildItem artifacts/installer | Select-Object Name, Length
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: RuhsatHesap-AutoCAD-Kurulum
+          path: artifacts/installer/*.exe
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Upload bundle
         uses: actions/upload-artifact@v4

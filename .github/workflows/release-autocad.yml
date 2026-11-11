@@ -1,8 +1,9 @@
 name: Release AutoCAD Plugin
 
-# `autocad-v*` etiketi gönderildiğinde eklentiyi derler, kurulmaya hazır
-# RuhsatHesap.bundle paketini zipler ve kalıcı indirme bağlantısı veren bir
-# GitHub Release yayımlar.
+# `autocad-v*` etiketi gönderildiğinde (ya da elle çalıştırıldığında) eklentiyi
+# derler, tek dosyalık kurulum programını ve RuhsatHesap.bundle zip'ini üretir,
+# kalıcı indirme bağlantısı veren bir GitHub Release yayımlar. Elle
+# çalıştırmada sürüm PackageContents.xml'den okunur.
 
 on:
   push:
@@ -41,8 +42,12 @@ jobs:
         shell: pwsh
         run: |
           $tag = '${{ github.ref_name }}'
-          if ($tag -notlike 'autocad-v*') { $tag = 'autocad-dev' }
-          $version = $tag -replace '^autocad-v', ''
+          if ($tag -like 'autocad-v*') {
+            $version = $tag -replace '^autocad-v', ''
+          } else {
+            $version = ([xml](Get-Content AutoCAD/bundle/PackageContents.xml -Raw)).ApplicationPackage.AppVersion
+            $tag = "autocad-v$version"
+          }
 
           # Zip'in kökünde RuhsatHesap.bundle klasörü durur; kullanıcı klasörü
           # doğrudan ApplicationPlugins içine kopyalar.
@@ -57,10 +62,21 @@ jobs:
 
           $zip = "RuhsatHesap-AutoCAD-$version.zip"
           Compress-Archive -Path $bundle -DestinationPath $zip -Force
+
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup kurulamadı" }
+          }
+          & $iscc "/DAppVersion=$version" "/DBundleDir=$PWD\artifacts\RuhsatHesap.bundle" "/DOutputDir=$PWD" "AutoCAD\installer\RuhsatHesap.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Kurulum dosyası derlenemedi" }
+          $setup = "RuhsatHesap-AutoCAD-Kurulum-$version.exe"
+
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "version=$version" >> $env:GITHUB_OUTPUT
           "zip=$zip" >> $env:GITHUB_OUTPUT
-          Get-Item $zip | Select-Object Name, Length
+          "setup=$setup" >> $env:GITHUB_OUTPUT
+          Get-Item $zip, $setup | Select-Object Name, Length
 
       - name: Write release notes
         shell: pwsh
@@ -73,15 +89,20 @@ jobs:
 
           ## Kurulum
 
-          1. Aşağıdaki zip dosyasını indirin.
+          `RuhsatHesap-AutoCAD-Kurulum-VERSION.exe` dosyasını indirip çalıştırın.
+          AutoCAD kapalı olmalıdır; yönetici yetkisi gerekmez. Kurulumdan sonra
+          AutoCAD'i açtığınızda üst şeritte **Ruhsat Hesap** sekmesi görünür.
+
+          Windows SmartScreen "bilinmeyen yayıncı" uyarısı verirse (kurulum
+          dosyası kod imzalı değildir) *Ek bilgi > Yine de çalıştır* deyin.
+
+          ### Elle kurulum (zip)
+
+          1. `RuhsatHesap-AutoCAD-VERSION.zip` dosyasını indirin.
           2. İçindeki `RuhsatHesap.bundle` klasörünü şuraya kopyalayın:
              `%APPDATA%\Autodesk\ApplicationPlugins\`
-          3. Kopyaladığınız klasördeki `.dll` dosyalarının engelini kaldırın
-             (internetten inen dosyaları Windows işaretler, AutoCAD işaretli
-             assembly yüklemez).
-          4. AutoCAD''i yeniden başlatın, komut satırına `RHYARDIM` yazın.
-
-          PowerShell ile tek seferde:
+          3. Klasördeki `.dll` dosyalarının engelini kaldırın, AutoCAD'i
+             yeniden başlatın.
 
           ```powershell
           $zip  = "$env:USERPROFILE\Downloads\RuhsatHesap-AutoCAD-VERSION.zip"
@@ -89,11 +110,6 @@ jobs:
           Expand-Archive $zip -DestinationPath $dest -Force
           Get-ChildItem "$dest\RuhsatHesap.bundle" -Recurse -Filter *.dll | Unblock-File
           ```
-
-          Tek seferlik denemek için `NETLOAD` ile
-          `Contents\net48\RuhsatHesap.Acad.dll` (AutoCAD 2019-2024) veya
-          `Contents\net8.0-windows\RuhsatHesap.Acad.dll` (AutoCAD 2025+)
-          dosyasını da yükleyebilirsiniz.
 
           ## İlk hesap
 
@@ -108,9 +124,9 @@ jobs:
           - Çizim birimi (`RHBIRIM`) yanlışsa alanlar 10.000 kat şaşar;
             varsayılan santimetredir.
           - Blok referansı (`INSERT`) içindeki polylineler taranmaz.
-          - Bu bir geliştirme sürümüdür (0.6.0) ve gerçek bir AutoCAD oturumunda
-            saha testinden geçmemiştir; çekirdek hesaplar birim testleriyle,
-            derleme CI ile doğrulanmıştır.
+          - Su deposu hesaplarındaki katsayılar varsayılan kabullerdir; idarenizin
+            şartlarına göre RHPANEL > Depolar sekmesinden değiştirin.
+          - Çekirdek hesaplar birim testleriyle, derleme CI ile doğrulanır.
           '@ -replace 'VERSION', '${{ steps.package.outputs.version }}' |
             Set-Content -Path release-notes.md -Encoding utf8
 
@@ -119,8 +135,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create '${{ steps.package.outputs.tag }}' '${{ steps.package.outputs.zip }}' `
-            --title 'Ruhsat Hesap AutoCAD Eklentisi ${{ steps.package.outputs.version }}' `
-            --notes-file release-notes.md `
-            --prerelease
+          $tag = '${{ steps.package.outputs.tag }}'
+          $files = @('${{ steps.package.outputs.setup }}', '${{ steps.package.outputs.zip }}')
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            # Aynı sürüm yeniden yayımlanıyor: dosyaları ve notları yenile.
+            gh release upload $tag @files --clobber
+            gh release edit $tag --notes-file release-notes.md
+          } else {
+            gh release create $tag @files `
+              --target '${{ github.sha }}' `
+              --title 'Ruhsat Hesap AutoCAD Eklentisi ${{ steps.package.outputs.version }}' `
+              --notes-file release-notes.md
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Release yayımlanamadı" }
           gh release view '${{ steps.package.outputs.tag }}' --json url --jq .url

@@ -150,11 +150,12 @@ namespace RuhsatHesap.Core.Tests
         public void AllProjectTablesAreProduced ()
         {
             IReadOnlyList<ReportTable> tables = ReportBuilder.AllProjectTables (Sample ());
-            // istinat duvarı + otopark/ağaç açıklamalı tablosu da var
-            Assert.Equal (8, tables.Count);
+            // istinat duvarı + otopark/ağaç + su depoları açıklamalı tabloları da var
+            Assert.Equal (9, tables.Count);
             Assert.All (tables, table => Assert.NotEmpty (table.Columns));
             Assert.All (tables, table => Assert.NotEmpty (table.Rows));
             Assert.Contains (tables, table => table.Title.StartsWith ("OTOPARK VE AĞAÇ"));
+            Assert.Contains (tables, table => table.Title.StartsWith ("SU DEPOSU HESAPLARI"));
         }
 
         [Fact]

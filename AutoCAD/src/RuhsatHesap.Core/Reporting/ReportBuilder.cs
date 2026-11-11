@@ -517,6 +517,110 @@ namespace RuhsatHesap.Core.Reporting
             return table;
         }
 
+        /// <summary>
+        /// Kullanma suyu, yangın suyu ve yağmur suyu deposu hesapları. Like the
+        /// otopark tablosu, every result is printed with the kabuller and the
+        /// işlem that produced it -- the coefficients are settings, and a
+        /// hacim shown without them could not be checked against the idare's
+        /// own şartları.
+        /// </summary>
+        public static ReportTable WaterTanks (ProjectData project)
+        {
+            WaterTankSettings settings = WaterTankSettings.Load (project);
+            WaterTankResult result = WaterTankCalculator.Calculate (project, settings);
+            var table = new ReportTable ("SU DEPOSU HESAPLARI (AÇIKLAMALI)", "Su Depoları");
+            table.Column ("Kalem", 36).Column ("Açıklama / İşlem", 46).Column ("Değer", 16, true);
+
+            table.AddSection ("KULLANMA SUYU DEPOSU");
+            TankRow (table, "Bağımsız Bölüm Sayısı", string.Empty, ReportCell.OfInteger (result.UnitCount));
+            TankRow (table, "Kişi Sayısı",
+                result.PersonsAreManual
+                    ? "Elle girildi"
+                    : result.UnitCount + " BB × " + TextUtil.FormatArea (settings.PersonsPerUnit) + " kişi",
+                ReportCell.OfNumber (result.Persons));
+            TankRow (table, "Günlük Tüketim (L/kişi·gün)", "Kabul", ReportCell.OfNumber (settings.DailyLitresPerPerson));
+            TankRow (table, "Depolama Süresi (gün)", "Kabul", ReportCell.OfNumber (settings.StorageDays));
+            TankTotal (table, "Gerekli Kullanma Suyu Deposu (m³)",
+                TextUtil.FormatArea (result.Persons) + " × " + TextUtil.FormatArea (settings.DailyLitresPerPerson) +
+                " × " + TextUtil.FormatArea (settings.StorageDays) + " ÷ 1000",
+                result.DomesticRequired);
+            TankCheck (table, settings.DomesticProvided, result.DomesticRequired);
+            if (result.Persons <= 0.0)
+                table.AddSection ("Bağımsız bölüm yok ve kişi sayısı girilmedi — kullanma suyu deposu hesaplanamıyor.");
+
+            table.AddSection ("YANGIN SUYU DEPOSU (Binaların Yangından Korunması Hakkında Yönetmelik md. 92)");
+            TankRow (table, "Bina Tehlike Sınıfı", WaterTankSettings.HazardLabel (settings.HazardClass), ReportCell.Empty);
+            TankRow (table, "Yağmurlama (Sprinkler) Debisi (L/dak)",
+                result.SprinklerFlow > 0.0
+                    ? TextUtil.FormatArea (settings.SprinklerDensity) + " mm/dak × " +
+                      TextUtil.FormatArea (settings.SprinklerArea) + " m² operasyon alanı"
+                    : "Yağmurlama sistemi yok",
+                ReportCell.OfNumber (result.SprinklerFlow));
+            TankRow (table, "Yangın Dolabı Debisi (L/dak)",
+                settings.HasCabinets ? "Yangın dolabı sistemi var" : "Yangın dolabı sistemi yok",
+                ReportCell.OfNumber (result.CabinetFlow));
+            TankRow (table, "Hidrant Debisi (L/dak)",
+                settings.HasHydrants ? "Hidrant sistemi var" : "Hidrant sistemi yok",
+                ReportCell.OfNumber (result.HydrantFlow));
+            TankRow (table, "Toplam Debi (L/dak)", "Yağmurlama + yangın dolabı + hidrant",
+                ReportCell.OfNumber (result.TotalFireFlow));
+            TankRow (table, "Süre (dak)", "Tehlike sınıfına göre", ReportCell.OfNumber (settings.DurationMinutes));
+            TankTotal (table, "Gerekli Yangın Suyu Deposu (m³)",
+                TextUtil.FormatArea (result.TotalFireFlow) + " × " + TextUtil.FormatArea (settings.DurationMinutes) + " ÷ 1000",
+                result.FireRequired);
+            TankCheck (table, settings.FireProvided, result.FireRequired);
+
+            table.AddSection ("YAĞMUR SUYU DEPOSU (Planlı Alanlar İmar Yönetmeliği, TS EN 16941-1)");
+            TankRow (table, "Parsel Alanı (m²)",
+                result.RainMandatoryByParcel
+                    ? "2000 m²'den büyük: yağmur suyu toplama sistemi zorunlu"
+                    : "2000 m² ve altı: yönetmelikçe zorunlu değil, yerel şartları kontrol edin",
+                ReportCell.OfNumber (project.Parcel.ParcelArea));
+            TankRow (table, "Çatı İzdüşüm Alanı A (m²)",
+                result.RoofAreaFromFootprint ? "Yapı oturum alanından alındı" : "Elle girildi",
+                ReportCell.OfNumber (result.RoofArea));
+            TankRow (table, "Yıllık Yağış ha (mm = L/m²)", "İl ortalaması", ReportCell.OfNumber (settings.AnnualRainfall));
+            TankRow (table, "Çatı Verim Katsayısı e", "Çatı yüzey tipine göre", ReportCell.OfNumber (settings.RoofCoefficient));
+            TankRow (table, "Filtre Verimi f", "Kabul", ReportCell.OfNumber (settings.FilterEfficiency));
+            TankRow (table, "Yıllık Toplanabilir Yağmur Suyu (L)", "A × ha × e × f",
+                ReportCell.OfNumber (result.AnnualYieldLitres));
+            TankRow (table, "Depolama Oranı (%)", "Yönetmelik alt sınırı %6",
+                ReportCell.OfNumber (settings.StorageRatio * 100.0));
+            TankTotal (table, "Gerekli Yağmur Suyu Deposu (m³)",
+                TextUtil.FormatArea (result.AnnualYieldLitres) + " × " +
+                TextUtil.FormatArea (settings.StorageRatio * 100.0) + "% ÷ 1000",
+                result.RainRequired);
+            TankCheck (table, settings.RainProvided, result.RainRequired);
+            if (settings.AnnualRainfall <= 0.0)
+                table.AddSection ("Yıllık yağış girilmedi — RHPANEL > Depolar sekmesinden ilin yıllık yağış ortalamasını girin.");
+            else if (result.RoofArea <= 0.0)
+                table.AddSection ("Çatı alanı yok — yapı oturum alanını (TIP=OTURUM) ya da çatı izdüşüm alanını girin.");
+            return table;
+        }
+
+        private static void TankRow (ReportTable table, string label, string note, ReportCell value)
+        {
+            table.AddRow (RowKind.Data, ReportCell.OfText (label), ReportCell.OfText (note ?? string.Empty), value);
+        }
+
+        private static void TankTotal (ReportTable table, string label, string operation, double required)
+        {
+            table.AddRow (RowKind.GrandTotal, ReportCell.OfText (label), ReportCell.OfText (operation),
+                ReportCell.OfNumber (required));
+        }
+
+        /// <summary>Projede sağlanan hacim ve gerekli hacimle karşılaştırması.</summary>
+        private static void TankCheck (ReportTable table, double provided, double required)
+        {
+            string verdict = provided <= 0.0
+                ? "Sağlanan hacim girilmedi"
+                : WaterTankResult.Covers (provided, required)
+                    ? "SAĞLANDI"
+                    : "YETERSİZ: " + TextUtil.FormatArea (required - provided) + " m³ eksik";
+            table.AddRow (RowKind.Data, ReportCell.OfText ("Projede Sağlanan Hacim (m³)"),
+                ReportCell.OfText (verdict), ReportCell.OfNumber (provided));
+        }
+
         private static void AddParkingBracketRow (ReportTable table, string range, string share)
         {
             table.AddRow (RowKind.Data, ReportCell.Empty, ReportCell.Empty, ReportCell.Empty,
@@ -575,6 +679,7 @@ namespace RuhsatHesap.Core.Reporting
             if (project.RetainingWalls.Count > 0) tables.Add (RetainingWalls (project));
             if (project.ExtraStructures.Count > 0) tables.Add (ExtraStructures (project));
             tables.Add (ParkingAndTrees (project));
+            tables.Add (WaterTanks (project));
             return tables;
         }
     }

@@ -88,6 +88,9 @@ namespace RuhsatHesap.Acad.Commands
         [CommandMethod ("RHOTOPARKAGAC", CommandFlags.Modal)]
         public void ParkingAndTreesTable () => ProjectTable (project => ReportBuilder.ParkingAndTrees (project));
 
+        [CommandMethod ("RHSUDEPOSU", CommandFlags.Modal)]
+        public void WaterTanksTable () => ProjectTable (project => ReportBuilder.WaterTanks (project));
+
         [CommandMethod ("RHTABLOLAR", CommandFlags.Modal)]
         public void AllTables ()
         {

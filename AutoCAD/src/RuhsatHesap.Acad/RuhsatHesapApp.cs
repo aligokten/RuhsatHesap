@@ -19,15 +19,20 @@ namespace RuhsatHesap.Acad
     /// </summary>
     public sealed class RuhsatHesapApp : IExtensionApplication
     {
-        public const string Version = "0.6.0";
+        public const string Version = "0.7.0";
 
         public void Initialize ()
         {
+            // The ribbon sekmesi first, and independently of whether a
+            // drawing is open: AutoCAD can start on the Start tab with no
+            // document, and the tab should be there all the same.
+            Ui.RuhsatRibbon.EnsureWhenIdle ();
+
             Document document = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
             if (document == null) return;
             document.Editor.WriteMessage (
                 "\nRuhsat Hesap AutoCAD eklentisi " + Version +
-                " yüklendi. Form için: RHPANEL, komut listesi için: RHYARDIM\n");
+                " yüklendi. Üst şeritte \"Ruhsat Hesap\" sekmesi; form için RHPANEL, komut listesi için RHYARDIM\n");
         }
 
         public void Terminate ()

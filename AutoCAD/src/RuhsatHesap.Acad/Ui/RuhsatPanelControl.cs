@@ -47,6 +47,32 @@ namespace RuhsatHesap.Acad.Ui
         private readonly DataGridView _floorGrid = NewGrid ();
         private readonly DataGridView _extraGrid = NewGrid ();
         private readonly DataGridView _wallGrid = NewGrid ();
+
+        // Depolar sekmesi
+        private readonly TextBox _tankPersonsPerUnit = NewText ();
+        private readonly TextBox _tankManualPersons = NewText ();
+        private readonly TextBox _tankDailyLitres = NewText ();
+        private readonly TextBox _tankDays = NewText ();
+        private readonly TextBox _tankDomesticProvided = NewText ();
+        private readonly ComboBox _tankHazard = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200 };
+        private readonly TextBox _tankSprinklerDensity = NewText ();
+        private readonly TextBox _tankSprinklerArea = NewText ();
+        private readonly CheckBox _tankHasCabinets = new CheckBox { Text = "Var", AutoSize = true };
+        private readonly TextBox _tankCabinetFlow = NewText ();
+        private readonly CheckBox _tankHasHydrants = new CheckBox { Text = "Var", AutoSize = true };
+        private readonly TextBox _tankHydrantFlow = NewText ();
+        private readonly TextBox _tankDuration = NewText ();
+        private readonly TextBox _tankFireProvided = NewText ();
+        private readonly TextBox _tankRoofArea = NewText ();
+        private readonly TextBox _tankRainfall = NewText ();
+        private readonly TextBox _tankRoofCoefficient = NewText ();
+        private readonly TextBox _tankFilter = NewText ();
+        private readonly TextBox _tankRatio = NewText ();
+        private readonly TextBox _tankRainProvided = NewText ();
+        private readonly Label _tankResult = new Label { AutoSize = true, Margin = new Padding (0, 6, 0, 6) };
+        /// <summary>True while the form is being filled, so the change
+        /// handlers do not recalculate (or overwrite debiler) half way.</summary>
+        private bool _fillingTanks;
         /// <summary>
         /// The live emsal/otopark summary plus the last action's message. A
         /// read-only multiline text box rather than a Label: the line is long
@@ -91,6 +117,7 @@ namespace RuhsatHesap.Acad.Ui
             tabs.TabPages.Add (BuildUnitTab ());
             tabs.TabPages.Add (BuildFloorTab ());
             tabs.TabPages.Add (BuildSiteTab ());
+            tabs.TabPages.Add (BuildTankTab ());
 
             // Double-clicking a warning copies it, so a handle like <2A3> can
             // be pasted straight into RHSOR.
@@ -249,6 +276,209 @@ namespace RuhsatHesap.Acad.Ui
                 Dock = DockStyle.Bottom, Height = 18, ForeColor = SystemColors.GrayText, Text = hint
             });
             return box;
+        }
+
+        /// <summary>
+        /// Kullanma suyu, yangın suyu ve yağmur suyu deposu kabulleri. Every
+        /// coefficient is editable because none of them is universal; the
+        /// result below the fields recalculates as they change, and the
+        /// RHSUDEPOSU tablosu prints the same numbers with their işlem.
+        /// </summary>
+        private TabPage BuildTankTab ()
+        {
+            var page = new TabPage ("Depolar") { Padding = new Padding (6), AutoScroll = true };
+            var layout = new TableLayoutPanel {
+                Dock = DockStyle.Top, ColumnCount = 2, RowCount = 0, AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                GrowStyle = TableLayoutPanelGrowStyle.AddRows
+            };
+            layout.ColumnStyles.Add (new ColumnStyle (SizeType.Absolute, 210));
+            layout.ColumnStyles.Add (new ColumnStyle (SizeType.Percent, 100));
+
+            foreach (FireHazardClass hazard in new[] {
+                         FireHazardClass.Low, FireHazardClass.Ordinary12, FireHazardClass.Ordinary34, FireHazardClass.High })
+                _tankHazard.Items.Add (WaterTankSettings.HazardLabel (hazard));
+            _tankHazard.SelectedIndex = 0;
+
+            AddHeader (layout, "Kullanma suyu deposu");
+            AddRow (layout, "BB başına kişi", _tankPersonsPerUnit);
+            AddRow (layout, "Kişi sayısı (0: BB'den hesapla)", _tankManualPersons);
+            AddRow (layout, "Günlük tüketim (L/kişi·gün)", _tankDailyLitres);
+            AddRow (layout, "Depolama süresi (gün)", _tankDays);
+            AddRow (layout, "Projede sağlanan hacim (m³)", _tankDomesticProvided);
+
+            AddHeader (layout, "Yangın suyu deposu");
+            AddRow (layout, "Bina tehlike sınıfı", _tankHazard);
+            AddRow (layout, "Yağmurlama yoğunluğu (mm/dak)", _tankSprinklerDensity);
+            AddRow (layout, "Yağmurlama operasyon alanı (m²)", _tankSprinklerArea);
+            AddRow (layout, "Yangın dolabı debisi (L/dak)", WithCheck (_tankHasCabinets, _tankCabinetFlow));
+            AddRow (layout, "Hidrant debisi (L/dak)", WithCheck (_tankHasHydrants, _tankHydrantFlow));
+            AddRow (layout, "Süre (dak)", _tankDuration);
+            AddRow (layout, "Projede sağlanan hacim (m³)", _tankFireProvided);
+
+            AddHeader (layout, "Yağmur suyu deposu");
+            AddRow (layout, "Çatı izdüşüm alanı (0: oturum alanı)", _tankRoofArea);
+            AddRow (layout, "Yıllık yağış (mm)", _tankRainfall);
+            AddRow (layout, "Çatı verim katsayısı (e)", _tankRoofCoefficient);
+            AddRow (layout, "Filtre verimi", _tankFilter);
+            AddRow (layout, "Depolama oranı (%)", _tankRatio);
+            AddRow (layout, "Projede sağlanan hacim (m³)", _tankRainProvided);
+
+            AddHeader (layout, "Gerekli hacimler");
+            AddWide (layout, _tankResult);
+            AddWide (layout, new Label {
+                AutoSize = true, ForeColor = SystemColors.GrayText, MaximumSize = new Size (430, 0),
+                Text = "Katsayılar varsayılan kabullerdir; idarenizin şartlarına göre değiştirin. " +
+                       "Tehlike sınıfı seçildiğinde dolap/hidrant debisi ve süre yönetmelik tablosundan dolar. " +
+                       "Açıklamalı tablo için: RHSUDEPOSU."
+            });
+
+            // Tehlike sınıfı değişince yönetmelik tablosundaki debi ve süre gelir.
+            _tankHazard.SelectedIndexChanged += (sender, args) => {
+                if (_fillingTanks) return;
+                var preset = new WaterTankSettings { HazardClass = SelectedHazard () };
+                preset.ApplyHazardDefaults ();
+                _fillingTanks = true;
+                _tankCabinetFlow.Text = TextUtil.FormatArea (preset.CabinetFlow);
+                _tankHydrantFlow.Text = TextUtil.FormatArea (preset.HydrantFlow);
+                _tankDuration.Text = TextUtil.FormatArea (preset.DurationMinutes);
+                _fillingTanks = false;
+                UpdateTankResult ();
+            };
+            foreach (TextBox box in new[] {
+                         _tankPersonsPerUnit, _tankManualPersons, _tankDailyLitres, _tankDays, _tankDomesticProvided,
+                         _tankSprinklerDensity, _tankSprinklerArea, _tankCabinetFlow, _tankHydrantFlow, _tankDuration,
+                         _tankFireProvided, _tankRoofArea, _tankRainfall, _tankRoofCoefficient, _tankFilter,
+                         _tankRatio, _tankRainProvided })
+                box.TextChanged += (sender, args) => UpdateTankResult ();
+            _tankHasCabinets.CheckedChanged += (sender, args) => UpdateTankResult ();
+            _tankHasHydrants.CheckedChanged += (sender, args) => UpdateTankResult ();
+
+            page.Controls.Add (layout);
+            return page;
+        }
+
+        private static Control WithCheck (CheckBox check, TextBox box)
+        {
+            var host = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding (0) };
+            box.Width = 120;
+            check.Margin = new Padding (6, 4, 0, 0);
+            host.Controls.Add (box);
+            host.Controls.Add (check);
+            return host;
+        }
+
+        /// <summary>A bold caption across both columns of a form layout.</summary>
+        private void AddHeader (TableLayoutPanel layout, string text)
+        {
+            AddWide (layout, new Label {
+                Text = text, AutoSize = true, Font = new Font (Font, FontStyle.Bold),
+                Margin = new Padding (0, 10, 0, 4)
+            });
+        }
+
+        private static void AddWide (TableLayoutPanel layout, Control control)
+        {
+            int row = layout.RowCount;
+            layout.RowCount = row + 1;
+            layout.RowStyles.Add (new RowStyle (SizeType.AutoSize));
+            control.Anchor = AnchorStyles.Left;
+            layout.Controls.Add (control, 0, row);
+            layout.SetColumnSpan (control, 2);
+        }
+
+        private FireHazardClass SelectedHazard ()
+        {
+            switch (_tankHazard.SelectedIndex) {
+                case 1: return FireHazardClass.Ordinary12;
+                case 2: return FireHazardClass.Ordinary34;
+                case 3: return FireHazardClass.High;
+                default: return FireHazardClass.Low;
+            }
+        }
+
+        private static int HazardIndex (FireHazardClass hazard)
+        {
+            switch (hazard) {
+                case FireHazardClass.Ordinary12: return 1;
+                case FireHazardClass.Ordinary34: return 2;
+                case FireHazardClass.High: return 3;
+                default: return 0;
+            }
+        }
+
+        private WaterTankSettings ReadTankSettings ()
+        {
+            return new WaterTankSettings {
+                PersonsPerUnit = TextUtil.ParseNumberLoose (_tankPersonsPerUnit.Text),
+                ManualPersons = TextUtil.ParseNumberLoose (_tankManualPersons.Text),
+                DailyLitresPerPerson = TextUtil.ParseNumberLoose (_tankDailyLitres.Text),
+                StorageDays = TextUtil.ParseNumberLoose (_tankDays.Text),
+                DomesticProvided = TextUtil.ParseNumberLoose (_tankDomesticProvided.Text),
+                HazardClass = SelectedHazard (),
+                SprinklerDensity = TextUtil.ParseNumberLoose (_tankSprinklerDensity.Text),
+                SprinklerArea = TextUtil.ParseNumberLoose (_tankSprinklerArea.Text),
+                HasCabinets = _tankHasCabinets.Checked,
+                CabinetFlow = TextUtil.ParseNumberLoose (_tankCabinetFlow.Text),
+                HasHydrants = _tankHasHydrants.Checked,
+                HydrantFlow = TextUtil.ParseNumberLoose (_tankHydrantFlow.Text),
+                DurationMinutes = TextUtil.ParseNumberLoose (_tankDuration.Text),
+                FireProvided = TextUtil.ParseNumberLoose (_tankFireProvided.Text),
+                RoofArea = TextUtil.ParseNumberLoose (_tankRoofArea.Text),
+                AnnualRainfall = TextUtil.ParseNumberLoose (_tankRainfall.Text),
+                RoofCoefficient = TextUtil.ParseNumberLoose (_tankRoofCoefficient.Text),
+                FilterEfficiency = TextUtil.ParseNumberLoose (_tankFilter.Text),
+                StorageRatio = TextUtil.ParseNumberLoose (_tankRatio.Text) / 100.0,
+                RainProvided = TextUtil.ParseNumberLoose (_tankRainProvided.Text)
+            };
+        }
+
+        private void FillTankFields ()
+        {
+            WaterTankSettings settings = WaterTankSettings.Load (_project);
+            _fillingTanks = true;
+            _tankPersonsPerUnit.Text = TextUtil.FormatArea (settings.PersonsPerUnit);
+            _tankManualPersons.Text = TextUtil.FormatArea (settings.ManualPersons);
+            _tankDailyLitres.Text = TextUtil.FormatArea (settings.DailyLitresPerPerson);
+            _tankDays.Text = TextUtil.FormatArea (settings.StorageDays);
+            _tankDomesticProvided.Text = TextUtil.FormatArea (settings.DomesticProvided);
+            _tankHazard.SelectedIndex = HazardIndex (settings.HazardClass);
+            _tankSprinklerDensity.Text = TextUtil.FormatArea (settings.SprinklerDensity);
+            _tankSprinklerArea.Text = TextUtil.FormatArea (settings.SprinklerArea);
+            _tankHasCabinets.Checked = settings.HasCabinets;
+            _tankCabinetFlow.Text = TextUtil.FormatArea (settings.CabinetFlow);
+            _tankHasHydrants.Checked = settings.HasHydrants;
+            _tankHydrantFlow.Text = TextUtil.FormatArea (settings.HydrantFlow);
+            _tankDuration.Text = TextUtil.FormatArea (settings.DurationMinutes);
+            _tankFireProvided.Text = TextUtil.FormatArea (settings.FireProvided);
+            _tankRoofArea.Text = TextUtil.FormatArea (settings.RoofArea);
+            _tankRainfall.Text = TextUtil.FormatArea (settings.AnnualRainfall);
+            _tankRoofCoefficient.Text = TextUtil.FormatArea (settings.RoofCoefficient);
+            _tankFilter.Text = TextUtil.FormatArea (settings.FilterEfficiency);
+            _tankRatio.Text = TextUtil.FormatArea (settings.StorageRatio * 100.0);
+            _tankRainProvided.Text = TextUtil.FormatArea (settings.RainProvided);
+            _fillingTanks = false;
+            UpdateTankResult ();
+        }
+
+        /// <summary>
+        /// Recalculates from the fields as typed. Kişi sayısı and oturum
+        /// alanı come from the project as last loaded or saved, so a BB or
+        /// oturum alanı edited in another tab counts after Kaydet.
+        /// </summary>
+        private void UpdateTankResult ()
+        {
+            if (_fillingTanks) return;
+            WaterTankSettings settings = ReadTankSettings ();
+            WaterTankResult result = WaterTankCalculator.Calculate (_project, settings);
+            _tankResult.Text =
+                "Kullanma suyu deposu : " + TextUtil.FormatArea (result.DomesticRequired) + " m³   (" +
+                TextUtil.FormatArea (result.Persons) + " kişi)\r\n" +
+                "Yangın suyu deposu    : " + TextUtil.FormatArea (result.FireRequired) + " m³   (" +
+                TextUtil.FormatArea (result.TotalFireFlow) + " L/dak)\r\n" +
+                "Yağmur suyu deposu   : " + TextUtil.FormatArea (result.RainRequired) + " m³   (" +
+                TextUtil.FormatArea (result.RoofArea) + " m² çatı" +
+                (settings.AnnualRainfall <= 0.0 ? ", yıllık yağış girilmedi" : string.Empty) + ")";
         }
 
         private Control BuildGridButtons (DataGridView grid, string addText, Action<DataGridViewRow> initialise)
@@ -511,6 +741,8 @@ namespace RuhsatHesap.Acad.Ui
             _wallGrid.Rows.Clear ();
             foreach (RetainingWall wall in _project.RetainingWalls)
                 _wallGrid.Rows.Add (wall.Name, TextUtil.FormatArea (wall.Area));
+
+            FillTankFields ();
         }
 
         private void ApplyFormToProject ()
@@ -538,6 +770,7 @@ namespace RuhsatHesap.Acad.Ui
 
             _skippedRows = ApplyUnitGrid () + ApplyFloorGrid ();
             ApplySiteGrids ();
+            ReadTankSettings ().Save (_project);
             _project.SortUnits ();
             _project.SortFloors ();
             _project.SortRetainingWalls ();

@@ -29,6 +29,21 @@ namespace RuhsatHesap.Acad.Commands
             }
         }
 
+        /// <summary>
+        /// Puts the Ruhsat Hesap sekmesi back on the ribbon and switches to
+        /// it -- for when the ribbon was closed while the plug-in loaded, or
+        /// a CUI reload dropped the tab.
+        /// </summary>
+        [CommandMethod ("RHRIBBON", CommandFlags.Modal | CommandFlags.Session)]
+        public void ShowRibbon ()
+        {
+            RuhsatRibbon.Ensure (true);
+            Document document = AcadUi.ActiveDocument;
+            if (document != null)
+                AcadUi.Write (document.Editor, "Ruhsat Hesap sekmesi üst şeride eklendi. " +
+                    "Şerit kapalıysa önce RIBBON komutuyla açın.");
+        }
+
         /// <summary>Reloads the form from the drawing without toggling it.</summary>
         [CommandMethod ("RHPANELYENILE", CommandFlags.Modal | CommandFlags.Session)]
         public void RefreshPanel ()
