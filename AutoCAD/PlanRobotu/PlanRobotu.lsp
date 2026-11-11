@@ -14,6 +14,8 @@
 
 (vl-load-com)
 
+(setq *pr-surum* "1.2")
+
 ;;; ---------------------------------------------------------------------------
 ;;;  1. YONETMELIK / TASARIM TABLOSU  (tum olculer METRE)
 ;;;  Degerleri yururlukteki PAIY metnine ve varsa belediyenizin
@@ -92,6 +94,7 @@
 
 ;; 12.345 -> "12,35"  (Turkce ondalik, iki basamak)
 (defun pr:fmt (x / i k)
+  (if (> (abs x) 1e7) (setq x (if (< x 0.0) -1e7 1e7)))   ; AutoLISP tamsayisi 32 bit
   (setq i (fix (+ (* (abs x) 100.0) 0.5))
         k (rem i 100))
   (strcat (if (< x -0.004999) "-" "")
@@ -581,6 +584,7 @@
 (defun pr:doluluk (g L tp)
   (cond ((null g) 0.0)
         ((<= L 0.0) 1e9)
+        ((>= (apply 'max g) 1e8) 1e9)          ; daire derinlige hic sigmiyor
         (T (/ (+ (apply '+ g) (* (1- (length g)) tp)) L))))
 
 ;; Bir segmentteki daireleri soldan saga yerlestirir
@@ -613,7 +617,7 @@
             D (- xc0 tp)
             f 0.0)
       (foreach s specs
-        (setq f (max f (/ (pr:daire-gerekli s D) Din))))
+        (setq f (max f (pr:doluluk (list (pr:daire-gerekli s D)) Din tp))))
       (list f xc0 D yh))))
 
 ;; Duzen B degerlendirmesi
@@ -721,7 +725,7 @@
   (pr:rapor "Planlı Alanlar İmar Yönetmeliği asgari ölçüleri (Md.29 piyesler, ortak merdiven/hol)")
   (pr:rapor (strcat "Kurgu: " (if (= (car *pr-duzen*) "A") "merdiven evi ortada, daireler iki yanda"
                                                        "orta kat holü, merdiven arka sırada")
-                    "   Doluluk: %" (itoa (fix (+ 0.5 (* 100.0 (cadr *pr-duzen*)))))))
+                    "   Doluluk: %" (itoa (fix (+ 0.5 (* 100.0 (min 1000.0 (cadr *pr-duzen*))))))))
   (foreach d (reverse *pr-daireler*)
     (setq no (car d) spec (cadr d) daireAlan 0.0)
     (foreach m *pr-mahaller*
@@ -960,7 +964,7 @@
     ("t_KILER" "Kiler:")
     ("t_BALKON" "Balkon:")
     ("tumune" "Bu daireyi tüm dairelere kopyala")
-    ("baslik" "Plan Robotu - Kat Planı")
+    ("baslik" "Plan Robotu 1.2 - Kat Planı")
     ("b_genel" "Genel Ayarlar")
     ("b_mahal" "Daire Mahalleri")
     ("accept" "Tamam")
@@ -1220,5 +1224,5 @@
 
 (defun c:PROBOT () (c:PLANROBOTU))
 
-(princ "\nPlan Robotu yüklendi. Komut: PLANROBOTU (kısa: PROBOT)")
+(princ (strcat "\nPlan Robotu " *pr-surum* " yüklendi. Komut: PLANROBOTU (kısa: PROBOT)"))
 (princ)

@@ -20,6 +20,10 @@ Desteklenen sürüm AutoCAD 2021 ve sonrasıdır. Dosyalar UTF-8 kodludur ve Tü
 
 `PlanRobotu.dcl` bulunamazsa robot formu geçici klasöre kendisi yazar.
 
+`PlanRobotu.dcl` dosyası **Windows-1254 (Türkçe ANSI)** kodludur, çünkü AutoCAD form dosyalarını ANSI kod sayfasıyla okur. Bu dosyayı elle düzenlemeyin; `araclar/dcl_uret.py` ile üretilir.
+
+**Güncellerken:** Yeni dosyaları eskilerin üzerine kaydedin ve AutoCAD'i yeniden başlatın ya da `APPLOAD` ile yeniden yükleyin. Yükleme sırasında komut satırında `Plan Robotu 1.2 yüklendi` yazmalıdır. Başlangıç Paketi'nde ya da destek klasörlerinde eski bir kopya kalmadığından emin olun.
+
 ## Kullanım
 
 1. Binanın **dış konturunu** kapalı, 4 köşeli, dik açılı bir `LWPOLYLINE` (Rectangle) olarak çizin. Dikdörtgen döndürülmüş olabilir.

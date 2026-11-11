@@ -327,7 +327,11 @@ class Interp:
         f["/"] = self._div
         f["1+"] = lambda a: a + 1
         f["1-"] = lambda a: a - 1
-        f["fix"] = lambda a: int(a)
+        def fix(a):
+            if abs(a) >= 2 ** 31:  # AutoLISP tamsayilari 32 bittir
+                raise LispError("bad argument type: fixnump: %g" % a)
+            return int(a)
+        f["fix"] = fix
         f["float"] = lambda a: float(a)
         f["abs"] = abs
         f["min"] = lambda *a: min(a)

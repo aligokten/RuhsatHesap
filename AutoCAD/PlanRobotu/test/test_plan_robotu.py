@@ -29,7 +29,11 @@ SENARYOLAR = [
 ]
 
 # Hic sigmayan alan: plan uretilmemeli, rapor aciklama vermeli
-SIGMAYAN = ("kucuk_alan", 14.0, 8.0, [S31, S31], 0.25, 0.10, 0.20, True)
+SIGMAYANLAR = [
+    ("kucuk_alan", 14.0, 8.0, [S31, S31], 0.25, 0.20, 0.20, True),
+    # derinlik > 10 m ama daireler enine sigmiyor (eski surumde 32 bit tasmasi)
+    ("dar_derin_alan", 12.0, 10.7, [S31, S31], 0.25, 0.10, 0.20, True),
+]
 
 
 def kur(interp, Lx, Ly, specs, td, ti, tp, asansor):
@@ -140,14 +144,15 @@ def calistir(svg_dir=None):
             os.makedirs(svg_dir, exist_ok=True)
             svg(it, Lx, Ly, td, os.path.join(svg_dir, ad + ".svg"),
                 "%s  (%.1f x %.1f m)" % (ad, Lx, Ly))
-    it = Interp()
-    it.load(LSP)
-    kur(it, *SIGMAYAN[1:])
-    if it.fn("pr:plan-uret", SIGMAYAN[1], SIGMAYAN[2]) is not NIL:
-        print("[HATA] %s: plan uretilmemeliydi" % SIGMAYAN[0])
-        hatalar += 1
-    else:
-        print("[OK ] %s: plan uretilmedi -> %s" % (SIGMAYAN[0], (it.g[Sym("*pr-rapor*")] or ["?"])[-1]))
+    for sg in SIGMAYANLAR:
+        it = Interp()
+        it.load(LSP)
+        kur(it, *sg[1:])
+        if it.fn("pr:plan-uret", sg[1], sg[2]) is not NIL:
+            print("[HATA] %s: plan uretilmemeliydi" % sg[0])
+            hatalar += 1
+        else:
+            print("[OK ] %s: plan uretilmedi -> %s" % (sg[0], (it.g[Sym("*pr-rapor*")] or ["?"])[-1]))
     print("\nToplam hatali senaryo: %d" % hatalar)
     return hatalar
 
