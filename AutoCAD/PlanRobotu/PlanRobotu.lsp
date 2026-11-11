@@ -14,7 +14,7 @@
 
 (vl-load-com)
 
-(setq *pr-surum* "1.2")
+(setq *pr-surum* "1.3")
 
 ;;; ---------------------------------------------------------------------------
 ;;;  1. YONETMELIK / TASARIM TABLOSU  (tum olculer METRE)
@@ -50,13 +50,7 @@
       *pr-asansor-kapi*     0.90
       *pr-balkon-derinlik*  1.20   ; daire icine gomulu balkon (loggia) net derinligi
       *pr-pencere-max*      1.50   ; azami pencere genisligi
-      *pr-yazi-boy*         0.18   ; mahal adi yazi yuksekligi (m)
-      *pr-cephe-derinlik-hedef* 4.50 ; cephe odalari icin hedef derinlik
-      *pr-servis-derinlik-azami* 3.00) ; islak hacim bandi azami derinligi
-
-;; Islak / yardimci hacimlerin genisleyebilecegi azami genislik (m).
-;; Fazla genislik antreye (giris holu) ve cephe odalarina aktarilir.
-(setq *pr-servis-azami* '(("BANYO" 2.60) ("WC" 1.60) ("KILER" 1.80) ("MUTFAK" 3.60)))
+      *pr-yazi-boy*         0.18)  ; mahal adi yazi yuksekligi (m)
 
 ;; Hazir sablonlar: (ad (SALON YATAK MUTFAK BANYO WC KILER BALKON))
 (setq *pr-sablonlar*
@@ -234,46 +228,101 @@
 
 ;;; ---------------------------------------------------------------------------
 ;;;  4. DAIRE ICI YERLESIM
-;;;  Daire, yerel (u v) sisteminde W x D dikdortgenidir; giris v=0 kenarindadir.
-;;;    v = 0 .. Ds            : SERVIS bandi (antre + islak hacimler)
-;;;    v = Ds+ti .. +Wk       : daire ici koridor
-;;;    v = Ds+2ti+Wk .. D     : CEPHE bandi (salon, yatak odalari, mutfak)
+;;;  Daire, yerel (u v) sisteminde genW x derD dikdortgenidir; giris v=0 kenarindadir.
+;;;    v = 0 .. Ds            : SERVIS bandi (antre, islak hacimler; yan cephe
+;;;                             disaridaysa uclarda pencereli yatak odasi)
+;;;    v = Ds+ti .. +Wk       : daire ici koridor (son kapidan sonra biter)
+;;;    v = Ds+2ti+Wk .. D     : CEPHE bandi (salon, mutfak, yatak odalari)
+;;;  Olasi tum yerlesimler (mutfak yeri, yan cepheye alinan yatak odalari,
+;;;  servis bandi derinligi) TASARIM PROFILI'ne gore puanlanir; en iyisi cizilir.
 ;;; ---------------------------------------------------------------------------
 
-;; oda: (kod ad asgariAlan asgariKenar kapi balkonlu)
+;; TASARIM PROFILI - ornek konut planlarindan cikarilan degerler
+;; (kod  idealAlan(m2)  idealOran  azamiOran  buyumeAgirligi)
+;; oran = uzun kenar / kisa kenar. Buyume agirligi: fazla alanin hangi mahale
+;; ne kadar verilecegi (salon en cok, islak hacimler en az).
+;; SALON ideali yatak sayisina gore ayarlanir: 18 + 3 x yatak (ornek: 2+1 -> 24 m2)
+;; Ilk yatak odasi (ebeveyn) 13,5 m2, digerleri 11 m2 hedeflenir.
+(setq *pr-profil*
+  '(("SALON"  24.0 1.45 2.00 3.0)
+    ("YATAK"  12.0 1.25 1.70 1.5)
+    ("MUTFAK"  9.0 1.60 2.50 1.0)
+    ("BANYO"   5.0 1.40 2.00 0.3)
+    ("WC"      2.2 1.60 2.40 0.1)
+    ("KILER"   2.5 1.60 3.00 0.2)
+    ("ANTRE"   4.5 1.80 3.50 0.4)))
+(setq *pr-sirkulasyon-hedef* 0.12)   ; antre+koridor / daire alani hedefi
+(setq *pr-islak-derinlik* 2.60)      ; islak hacimler koridor tarafinda bu derinlikte kalir;
+                                     ; giris duvari boyunca kalan serit VESTIYER / DEPO olur
+
+(defun pr:islak-mi (o) (member (car o) '("WC" "BANYO" "KILER")))
+
+;; Servis bandi derinligi ds iken islak hacim derinligi
+(defun pr:islak-der (ds / dw)
+  (setq dw (min ds *pr-islak-derinlik*))
+  (if (< (- ds dw (pr:p "TI")) 1.0) ds dw))
+
+(defun pr:prf (kod i) (nth i (assoc kod *pr-profil*)))
+(defun pr:kare (x) (* x x))
+
+;; oda: (kod ad asgariAlan asgariKenar kapi balkonlu idealAlan)
 (defun pr:oda (kod ad / r)
   (setq r (pr:tip kod))
-  (list kod ad (nth 3 r) (nth 4 r) (nth 5 r) nil))
+  (list kod ad (nth 3 r) (nth 4 r) (nth 5 r) nil (pr:prf kod 1)))
 
-(defun pr:oda-balkonlu (o)
-  (list (nth 0 o) (nth 1 o) (nth 2 o) (nth 3 o) (nth 4 o) T))
+(defun pr:oda-balkonlu (o) (pr:liste-degistir o 5 T))
 
 (defun pr:adlandir (kod n i)
   (if (> n 1) (strcat (cadr (pr:tip kod)) " " (itoa i)) (cadr (pr:tip kod))))
 
-(defun pr:oda-listesi (spec kodlar / res n i)
-  (setq res nil)
-  (foreach kod kodlar
-    (setq n (pr:spec-say spec kod) i 1)
-    (repeat n
-      (setq res (append res (list (pr:oda kod (pr:adlandir kod n i))))
-            i (1+ i))))
+(defun pr:oda-listesi (spec kod / res n i o)
+  (setq res nil n (pr:spec-say spec kod) i 1)
+  (repeat n
+    (setq o (pr:oda kod (pr:adlandir kod n i)))
+    (cond ((= kod "YATAK") (setq o (pr:liste-degistir o 6 (if (= i 1) 13.5 11.0))))
+          ((= kod "SALON") (setq o (pr:liste-degistir o 6 (+ 18.0 (* 3.0 (pr:spec-say spec "YATAK")))))))
+    (setq res (append res (list o)) i (1+ i)))
   res)
 
-;; -> (cepheOdalari servisOdalari atanamayanBalkonSayisi)
-(defun pr:daire-odalar (spec mutfakCephede / cephe servis balkon)
-  (setq cephe  (pr:oda-listesi spec (if mutfakCephede '("SALON" "MUTFAK" "YATAK") '("SALON" "YATAK")))
-        servis (append (list (pr:oda "ANTRE" "ANTRE"))
-                       (pr:oda-listesi spec (if mutfakCephede '("BANYO" "WC" "KILER")
-                                                             '("MUTFAK" "BANYO" "WC" "KILER"))))
-        balkon (pr:spec-say spec "BALKON"))
-  (setq cephe
-    (mapcar '(lambda (o)
-               (if (and (> balkon 0) (member (car o) '("SALON" "YATAK" "MUTFAK")))
-                 (progn (setq balkon (1- balkon)) (pr:oda-balkonlu o))
-                 o))
-            cephe))
-  (list cephe servis balkon))
+;; Yerlesim adaylari: ((cephe servis mutfakCephede kalanBalkon) ...)
+;; *pr-dis* = (solCepheDisarida sagCepheDisarida)
+(defun pr:adaylar (spec / res yat ny sal mut isl mc sl sr cephe servis yL yR kalan balkon bo)
+  (setq res nil
+        yat (pr:oda-listesi spec "YATAK") ny (length yat)
+        sal (pr:oda-listesi spec "SALON")
+        mut (pr:oda-listesi spec "MUTFAK")
+        isl (append (pr:oda-listesi spec "WC") (pr:oda-listesi spec "BANYO")
+                    (pr:oda-listesi spec "KILER")))
+  (foreach bo (if (> (pr:spec-say spec "BALKON") 0)
+                '(("SALON" "YATAK" "MUTFAK") ("YATAK" "SALON" "MUTFAK"))
+                '(("SALON")))
+   (foreach mc '(T nil)
+    (foreach sl '(nil T)
+      (foreach sr '(nil T)
+        (if (and (or mc mut)
+                 (or (not sl) (and (car *pr-dis*) (>= ny 1)))
+                 (or (not sr) (and (cadr *pr-dis*) (>= ny (if sl 2 1)))))
+          (progn
+            (setq kalan yat yL nil yR nil)
+            (if sr (setq yR (last kalan) kalan (pr:butlast kalan)))
+            (if sl (setq yL (last kalan) kalan (pr:butlast kalan)))
+            (setq cephe (append sal (if mc mut nil) kalan)
+                  servis (append (if yL (list yL) nil)
+                                 (list (pr:oda "ANTRE" "ANTRE"))
+                                 isl
+                                 (if mc nil mut)
+                                 (if yR (list yR) nil))
+                  balkon (pr:spec-say spec "BALKON"))
+            ;; balkonlar oncelik sirasina gore cephe odalarina verilir
+            (foreach kod bo
+              (setq cephe
+                (mapcar '(lambda (o)
+                           (if (and (> balkon 0) (= (car o) kod) (not (nth 5 o)))
+                             (progn (setq balkon (1- balkon)) (pr:oda-balkonlu o))
+                             o))
+                        cephe)))
+            (if cephe (setq res (cons (list cephe servis mc balkon) res)))))))))
+  (reverse res))
 
 ;; Balkonlu odanin net derinligi
 (defun pr:oda-derinlik (o bantDerinlik)
@@ -288,22 +337,31 @@
     nil
     (max s (/ a derinlik))))
 
-;; Bant toplam asgari genisligi (araya iç duvarlar dahil) ya da nil
-(defun pr:bant-gen (odalar derinlik / top w ok)
+;; Profil hedef genisligi: ideal alan, ideal oran bandina kirpilir
+(defun pr:oda-hedef (o derinlik / m oran h)
+  (setq m (pr:oda-gen o derinlik)
+        oran (pr:prf (car o) 2)
+        h (/ (nth 6 o) derinlik))
+  (setq h (max h (/ derinlik oran)))
+  (setq h (min h (* derinlik oran)))
+  (max m h))
+
+;; Bant toplam asgari genisligi (araya ic duvarlar dahil) ya da nil
+(defun pr:bant-gen (odalar derinlik / top gw ok)
   (setq top 0.0 ok T)
   (foreach o odalar
-    (setq w (pr:oda-gen o (pr:oda-derinlik o derinlik)))
-    (if w (setq top (+ top w)) (setq ok nil)))
+    (setq gw (pr:oda-gen o (pr:oda-derinlik o derinlik)))
+    (if gw (setq top (+ top gw)) (setq ok nil)))
   (cond ((not ok) nil)
         ((null odalar) 0.0)
         (T (+ top (* (1- (length odalar)) (pr:p "TI"))))))
 
 ;; En dar daire genisligini veren servis bandi derinligi: (gerekliW Ds) ya da nil
-(defun pr:daire-cozum (cephe servis D / ti wk ds wf ws en iyi)
+(defun pr:daire-cozum (cephe servis derD / ti wk ds wf ws en iyi)
   (setq ti (pr:p "TI") wk *pr-koridor* ds 0.0 iyi nil)
   (foreach o servis (setq ds (max ds (nth 3 o))))
-  (while (<= (+ ds wk ti ti) (+ D 1e-9))
-    (setq wf (pr:bant-gen cephe (- D ds wk ti ti))
+  (while (<= (+ ds wk ti ti) (+ derD 1e-9))
+    (setq wf (pr:bant-gen cephe (- derD ds wk ti ti))
           ws (pr:bant-gen servis ds))
     (if (and wf ws)
       (progn
@@ -313,110 +371,181 @@
     (setq ds (+ ds 0.05)))
   iyi)
 
-;; Daire icin uygulanabilir varyantlar: ((gerekliW Ds odalar mutfakCephede) ...)
-(defun pr:daire-varyantlar (spec D / res odalar c)
-  (setq res nil)
-  (foreach mc '(T nil)
-    (if (or mc (> (pr:spec-say spec "MUTFAK") 0))
-      (progn
-        (setq odalar (pr:daire-odalar spec mc)
-              c (pr:daire-cozum (car odalar) (cadr odalar) D))
-        (if c (setq res (append res (list (list (car c) (cadr c) odalar mc))))))))
-  res)
-
 ;; Daire icin gereken asgari genislik (sigmiyorsa cok buyuk sayi)
-(defun pr:daire-gerekli (spec D / v en)
+(defun pr:daire-gerekli (spec derD / en c)
   (setq en 1e9)
-  (foreach v (pr:daire-varyantlar spec D)
-    (setq en (min en (car v))))
+  (foreach a (pr:adaylar spec)
+    (setq c (pr:daire-cozum (car a) (cadr a) derD))
+    (if c (setq en (min en (car c)))))
   en)
 
-;; Odanin genisleyebilecegi azami deger (nil = sinirsiz)
-(defun pr:azami (kod) (cadr (assoc kod *pr-servis-azami*)))
-(defun pr:acik-mi (o g / m)
-  (setq m (pr:azami (car o)))
-  (or (null m) (< g (- m 1e-6))))
-
-;; Bant icindeki oda genisliklerini bantW'ye gore dagitir.
-;; Fazla genislik azami degere ulasmamis odalara orantili dagitilir
-;; (islak hacimler sinirli, antre ve cephe odalari sinirsiz).
-(defun pr:bant-genislikleri (odalar derinlik bantW / ti taban top fazla gen yeni topAg k)
-  (setq ti (pr:p "TI"))
-  (setq taban (mapcar '(lambda (o / gw)
-                         (setq gw (pr:oda-gen o (pr:oda-derinlik o derinlik)))
-                         (if gw gw (nth 3 o)))
-                      odalar))
-  (setq top (apply '+ taban)
-        fazla (- bantW top (* (1- (length odalar)) ti)))
-  (if (>= fazla 0.0)
-    (progn
-      (setq gen taban)
-      (repeat (1+ (length odalar))
-        (if (> fazla 1e-6)
-          (progn
-            (setq topAg 0.0)
-            (mapcar '(lambda (o g b) (if (pr:acik-mi o g) (setq topAg (+ topAg b)))) odalar gen taban)
-            (if (> topAg 0.0)
-              (setq yeni (mapcar '(lambda (o g b / e m)
-                                    (if (pr:acik-mi o g)
-                                      (progn
-                                        (setq e (+ g (* fazla (/ b topAg)))
-                                              m (pr:azami (car o)))
-                                        (if (and m (> e m)) (max g m) e))
-                                      g))
-                                 odalar gen taban)
-                    fazla (- fazla (- (apply '+ yeni) (apply '+ gen)))
-                    gen yeni)
-              (setq fazla 0.0)))))
-      gen)
-    (progn
-      ;; yer yetersiz: orantili kucult (rapor UYGUN DEGIL gosterecek)
-      (setq k (/ (- bantW (* (1- (length odalar)) ti)) top))
-      (mapcar '(lambda (gw) (* gw k)) taban))))
-
-;; Verilen daire genisligine sigan ve cephe odalarini hedef derinlige
-;; en cok yaklastiran servis bandi derinligi (yoksa nil)
-(defun pr:ds-sec (cephe servis derD genW / ti wk ds wf ws hedef iyi iyiFark fark)
-  (setq ti (pr:p "TI") wk *pr-koridor* ds 0.0 iyi nil iyiFark 0.0
-        hedef (min *pr-servis-derinlik-azami* (- derD wk ti ti *pr-cephe-derinlik-hedef*)))
-  (foreach o servis (setq ds (max ds (nth 3 o))))
-  (while (<= (+ ds wk ti ti) (+ derD 1e-9))
-    (setq wf (pr:bant-gen cephe (- derD ds wk ti ti))
-          ws (pr:bant-gen servis ds))
-    (if (and wf ws (<= (max wf ws) (+ genW 1e-6)))
+;; Fazla genisligi agirliklara gore, tavanlara takilmadan dagitir
+(defun pr:dagit (gen agirlik tavan fazla / topAg yeni)
+  (repeat (1+ (length gen))
+    (if (> fazla 1e-6)
       (progn
-        (setq fark (abs (- ds hedef)))
-        (if (or (null iyi) (< fark (- iyiFark 1e-9)))
-          (setq iyi ds iyiFark fark))))
-    (setq ds (+ ds 0.05)))
-  iyi)
+        (setq topAg 0.0)
+        (mapcar '(lambda (g a tv) (if (< g (- tv 1e-6)) (setq topAg (+ topAg a)))) gen agirlik tavan)
+        (if (> topAg 0.0)
+          (setq yeni (mapcar '(lambda (g a tv / e)
+                                (if (< g (- tv 1e-6))
+                                  (progn (setq e (+ g (* fazla (/ a topAg)))) (min e tv))
+                                  g))
+                             gen agirlik tavan)
+                fazla (- fazla (- (apply '+ yeni) (apply '+ gen)))
+                gen yeni)))))
+  ;; tum odalar tavanda ise kalan fazlalik geri dondurulur
+  (list gen fazla))
 
-(defun pr:pencere-ekle (fr u0 u1 vYuz kal / w m)
-  (setq w (min *pr-pencere-max* (- (- u1 u0) 0.60)))
-  (if (>= w 0.60)
+;; Bant genislikleri: once asgari, sonra profil hedefi, sonra buyume agirliklari.
+;; derinlikler: her odanin net derinligi. Sigmazsa nil (zorla=T ise orantili kucultur).
+(defun pr:bant-dagit (odalar derinlikler avail zorla / mins hed topM topH k r gen)
+  (setq mins (mapcar '(lambda (o dd) (pr:oda-gen o dd)) odalar derinlikler))
+  (cond
+    ((member nil mins)
+     (if zorla (mapcar '(lambda (o) (* (nth 3 o) 1.0)) odalar) nil))
+    ((> (setq topM (apply '+ mins)) (+ avail 1e-6))
+     (if zorla (mapcar '(lambda (m) (* m (/ avail topM))) mins) nil))
+    (T
+     (setq hed (mapcar '(lambda (o dd) (pr:oda-hedef o dd)) odalar derinlikler)
+           topH (apply '+ hed))
+     (if (>= topH avail)
+       (progn
+         (setq k (if (> (- topH topM) 1e-9) (/ (- avail topM) (- topH topM)) 0.0))
+         (mapcar '(lambda (m h) (+ m (* (- h m) k))) mins hed))
+       (progn
+         ;; once azami orana kadar buyut, artan hala varsa oranlari zorla
+         (setq r (pr:dagit hed
+                           (mapcar '(lambda (o) (pr:prf (car o) 4)) odalar)
+                           (mapcar '(lambda (o dd h) (max h (* dd (pr:prf (car o) 3)))) odalar derinlikler hed)
+                           (- avail topH)))
+         (setq gen (car r))
+         (if (> (cadr r) 1e-6)
+           (setq gen (car (pr:dagit gen
+                                    (mapcar '(lambda (o) (pr:prf (car o) 4)) odalar)
+                                    (mapcar '(lambda (g) 1e9) gen)
+                                    (cadr r)))))
+         gen)))))
+
+;; Tek odanin profile uzakligi (kucuk = iyi)
+(defun pr:oda-puan (o gw dd / a r)
+  (setq a (* gw dd)
+        r (/ (max gw dd) (max 0.01 (min gw dd))))
+  (+ (pr:kare (max 0.0 (- r (pr:prf (car o) 2))))
+     (* 10.0 (pr:kare (max 0.0 (- r (pr:prf (car o) 3)))))
+     (* 1.5 (pr:kare (/ (- a (nth 6 o)) (nth 6 o))))))
+
+;; Koridorun bitebilecegi en kucuk u: son kapilarin otesi
+(defun pr:koridor-sonu (cephe wf servis ws / ti u ue)
+  (setq ti (pr:p "TI") u 0.0 ue 0.0)
+  (mapcar '(lambda (o gw) (setq ue (max ue (+ u 0.20 (nth 4 o))) u (+ u gw ti))) cephe wf)
+  (setq u 0.0)
+  (mapcar '(lambda (o gw) (setq ue (max ue (+ u 0.20 (nth 4 o)) (if (= (car o) "ANTRE") (+ u gw) 0.0))
+                                u (+ u gw ti)))
+          servis ws)
+  ue)
+
+;; Antrenin u araligi
+(defun pr:antre-araligi (servis ws / ti u res)
+  (setq ti (pr:p "TI") u 0.0 res nil)
+  (mapcar '(lambda (o gw) (if (= (car o) "ANTRE") (setq res (list u (+ u gw)))) (setq u (+ u gw ti)))
+          servis ws)
+  res)
+
+;; Bir aday + servis derinligi icin cozum: (puan aday ds wf ws ue) ya da nil
+(defun pr:aday-coz (aday genW derD ds / ti wk df cephe servis derF derS wf ws puan ar ue
+                                       sirk net dw)
+  (setq ti (pr:p "TI") wk *pr-koridor*
+        df (- derD ds wk ti ti)
+        cephe (car aday) servis (cadr aday))
+  (setq derF (mapcar '(lambda (o) (pr:oda-derinlik o df)) cephe)
+        dw (pr:islak-der ds)
+        derS (mapcar '(lambda (o) (if (pr:islak-mi o) dw ds)) servis))
+  (setq wf (pr:bant-dagit cephe derF (- genW (* (1- (length cephe)) ti)) nil)
+        ws (pr:bant-dagit servis derS (- genW (* (1- (length servis)) ti)) nil))
+  (if (and wf ws)
+    (progn
+      (setq ar (pr:antre-araligi servis ws)
+            ue (pr:koridor-sonu cephe wf servis ws))
+      ;; daire giris kapisi ortak hole acilabilmeli
+      (if (<= (+ (car ar) 0.10 (nth 4 (pr:tip "ANTRE"))) (+ *pr-giris-azami* 1e-6))
+        (progn
+          ;; koridor sonrasi son odaya katilan serit en fazla 3 m olur
+          (setq ue (max ue (- genW ti 3.0)))
+          (if (< (- genW ue ti) 0.60) (setq ue genW))
+          (setq puan 0.0)
+          (mapcar '(lambda (o gw dd) (setq puan (+ puan (pr:oda-puan o gw dd)))) cephe wf derF)
+          (mapcar '(lambda (o gw dd) (if (/= (car o) "ANTRE") (setq puan (+ puan (pr:oda-puan o gw dd)))))
+                  servis ws derS)
+          (setq net (* genW derD)
+                sirk (+ (* (- (cadr ar) (car ar)) (+ ds ti)) (* ue wk)))
+          (setq puan (+ puan (* 10.0 (max 0.0 (- (/ sirk net) *pr-sirkulasyon-hedef*)))))
+          (list puan aday ds wf ws ue dw))))))
+
+;; En iyi yerlesim; hic sigmiyorsa en dar adayi orantili kucultur
+(defun pr:daire-plan (spec genW derD / ti wk adaylar iyi c ds dsMin en enA cephe servis df)
+  (setq ti (pr:p "TI") wk *pr-koridor* iyi nil
+        adaylar (pr:adaylar spec))
+  (foreach a adaylar
+    (setq dsMin 0.0)
+    (foreach o (cadr a) (setq dsMin (max dsMin (nth 3 o))))
+    (setq ds dsMin)
+    (while (< (+ ds wk ti ti 1.0) derD)
+      (setq c (pr:aday-coz a genW derD ds))
+      (if (and c (or (null iyi) (< (car c) (car iyi)))) (setq iyi c))
+      (setq ds (+ ds 0.10))))
+  (if iyi
+    iyi
+    (progn
+      ;; zorunlu (uygunsuz) yerlesim: en az genislik isteyen aday
+      (setq en nil)
+      (foreach a adaylar
+        (setq c (pr:daire-cozum (car a) (cadr a) derD))
+        (if (and c (or (null en) (< (car c) (car en)))) (setq en c enA a)))
+      (if en
+        (progn
+          (setq ds (cadr en) cephe (car enA) servis (cadr enA)
+                df (- derD ds wk ti ti))
+          (list 1e9 enA ds
+                (pr:bant-dagit cephe (mapcar '(lambda (o) (pr:oda-derinlik o df)) cephe)
+                               (- genW (* (1- (length cephe)) ti)) T)
+                (pr:bant-dagit servis (mapcar '(lambda (o) ds) servis)
+                               (- genW (* (1- (length servis)) ti)) T)
+                genW ds))))))
+
+;; Dusey (u sabit) yuzlere aciklik koymak icin cerceveyi devrik kullanir
+(defun pr:devrik (fr) (list (car fr) (caddr fr) (cadr fr)))
+
+(defun pr:pencere (fr u0 u1 vYuz yon kal / gw m)
+  (setq gw (min *pr-pencere-max* (- (- u1 u0) 0.60)))
+  (if (>= gw 0.60)
     (progn
       (setq m (/ (+ u0 u1) 2.0))
-      (pr:aciklik "PENCERE" fr (- m (/ w 2.0)) (+ m (/ w 2.0)) vYuz -1 kal))))
+      (pr:aciklik "PENCERE" fr (- m (/ gw 2.0)) (+ m (/ gw 2.0)) vYuz yon kal))))
 
 ;; Kapiyi oda kenarinin basina (koseden 10 cm) yerlestirir
-(defun pr:kapi-ekle (fr u0 u1 vYuz yon kal genislik / a w)
-  (setq w (min genislik (- (- u1 u0) 0.20)))
-  (if (> w 0.40)
+(defun pr:kapi-ekle (fr u0 u1 vYuz yon kal genislik / a gw)
+  (setq gw (min genislik (- (- u1 u0) 0.20)))
+  (if (> gw 0.40)
     (progn
       (setq a (+ u0 0.10))
-      (pr:aciklik "KAPI" fr a (+ a w) vYuz yon kal))))
+      (pr:aciklik "KAPI" fr a (+ a gw) vYuz yon kal))))
+
+;; Ardisik ayni noktalari ayiklar
+(defun pr:tekille (pts / res)
+  (setq res nil)
+  (foreach p pts
+    (if (or (null res) (not (pr:ayni p (car res)))) (setq res (cons p res))))
+  (if (and (> (length res) 1) (pr:ayni (car res) (last res))) (setq res (cdr res)))
+  (reverse res))
 
 ;; Daireyi verilen cerceveye yerlestirir
-(defun pr:daire-yerlestir (no spec fr genW derD / vars sec odalar cephe servis ds df ti tp td wk
-                                            v0 u gen o w etk pts bal ap kal wa top net)
-  (setq ti (pr:p "TI") tp (pr:p "TP") td (pr:p "TD") wk *pr-koridor*)
-  (setq vars (pr:daire-varyantlar spec derD) sec nil)
-  ;; once mutfak cephede, sigmazsa en dar varyant
-  (foreach v vars
-    (if (and (null sec) (<= (car v) (+ genW 1e-6))) (setq sec v)))
-  (if (null sec)
-    (foreach v vars
-      (if (or (null sec) (< (car v) (car sec))) (setq sec v))))
+(defun pr:daire-yerlestir (no spec fr genW derD / sec aday cephe servis ds df ti tp td wk
+                                            v0 u wf ws o gw bal ue frT disL disR son ilk
+                                            ar cv0 cv1 ust pts vUst dw iu0 iu1)
+  (setq ti (pr:p "TI") tp (pr:p "TP") td (pr:p "TD") wk *pr-koridor*
+        disL (car *pr-dis*) disR (cadr *pr-dis*) frT (pr:devrik fr))
+  (setq sec (pr:daire-plan spec genW derD))
   (if (null sec)
     (progn
       (setq *pr-uyarilar*
@@ -424,56 +553,83 @@
                            " m) mahalleri yerleştirmeye yetmiyor - daire çizilemedi.") *pr-uyarilar*))
       (setq *pr-hata-sayisi* (1+ *pr-hata-sayisi*)))
     (progn
-      (setq odalar (caddr sec)
-            ds (cond ((pr:ds-sec (car odalar) (cadr odalar) derD genW)) ((cadr sec)))
-            cephe (car odalar)
-            servis (cadr odalar)
+      (setq aday (cadr sec) ds (caddr sec) wf (cadddr sec) ws (nth 4 sec) ue (nth 5 sec)
+            dw (nth 6 sec) iu0 nil iu1 nil
+            cephe (car aday) servis (cadr aday)
             v0 (+ ds ti wk ti)
-            df (- derD v0))
-      (if (> (caddr odalar) 0)
+            df (- derD v0)
+            cv0 (+ ds ti) cv1 (+ ds ti wk))
+      (if (> (cadddr aday) 0)
         (setq *pr-uyarilar*
-               (cons (strcat "DAİRE " (itoa no) ": " (itoa (caddr odalar))
+               (cons (strcat "DAİRE " (itoa no) ": " (itoa (cadddr aday))
                              " balkon için uygun oda bulunamadı.") *pr-uyarilar*)))
       ;; --- cephe bandi
-      (setq gen (pr:bant-genislikleri cephe df genW) u 0.0)
+      (setq u 0.0 ilk T)
       (foreach o cephe
-        (setq w (car gen) gen (cdr gen))
+        (setq gw (car wf) wf (cdr wf) son (null wf))
+        (setq vUst (if (nth 5 o) (- derD *pr-balkon-derinlik* td) derD))
+        (if (and son (< ue (- genW 1e-6)))
+          ;; koridorun bittigi yerden sonrasi son odaya katilir (L oda)
+          (setq pts (pr:tekille
+                      (list (pr:ub fr u v0) (pr:ub fr (+ ue ti) v0) (pr:ub fr (+ ue ti) cv0)
+                            (pr:ub fr genW cv0) (pr:ub fr genW vUst) (pr:ub fr u vUst))))
+          (setq pts (pr:dik4 fr u v0 (+ u gw) vUst)))
+        (pr:mahal-ekle (car o) (cadr o) pts gw (- vUst v0) no
+                       (pr:ub fr (+ u (/ gw 2.0)) (/ (+ v0 vUst) 2.0)))
         (if (nth 5 o)
           (progn
             (setq bal (- derD *pr-balkon-derinlik*))
-            (pr:mahal-ekle (car o) (cadr o) (pr:dik4 fr u v0 (+ u w) (- bal td))
-                           w (- bal td v0) no (pr:ub fr (+ u (/ w 2.0)) (/ (+ v0 (- bal td)) 2.0)))
-            (pr:mahal-ekle "BALKON" "BALKON" (pr:dik4 fr u bal (+ u w) derD)
-                           w *pr-balkon-derinlik* no (pr:ub fr (+ u (/ w 2.0)) (/ (+ bal derD) 2.0)))
-            (pr:kapi-ekle fr u (+ u w) (- bal td) -1 td 0.90))
-          (progn
-            (pr:mahal-ekle (car o) (cadr o) (pr:dik4 fr u v0 (+ u w) derD)
-                           w df no (pr:ub fr (+ u (/ w 2.0)) (/ (+ v0 derD) 2.0)))
-            (pr:pencere-ekle fr u (+ u w) derD td)))
-        (pr:kapi-ekle fr u (+ u w) v0 1 ti (nth 4 o))
-        (setq u (+ u w ti)))
+            (pr:mahal-ekle "BALKON" "BALKON" (pr:dik4 fr u bal (+ u gw) derD)
+                           gw *pr-balkon-derinlik* no (pr:ub fr (+ u (/ gw 2.0)) (/ (+ bal derD) 2.0)))
+            (pr:kapi-ekle fr u (+ u gw) vUst -1 td 0.90))
+          (pr:pencere fr u (+ u gw) derD -1 td))
+        ;; kose odalara yan cephe penceresi
+        (if (and ilk disL) (pr:pencere frT v0 vUst 0.0 1 td))
+        (if (and son disR) (pr:pencere frT v0 vUst genW -1 td))
+        (pr:kapi-ekle fr u (+ u gw) v0 1 ti (nth 4 o))
+        (setq u (+ u gw ti) ilk nil))
       ;; --- servis bandi
-      (setq gen (pr:bant-genislikleri servis ds genW) u 0.0)
+      (setq u 0.0 ar (pr:antre-araligi servis ws) ilk T)
       (foreach o servis
-        (setq w (car gen) gen (cdr gen))
+        (setq gw (car ws) ws (cdr ws) son (null ws))
         (if (= (car o) "ANTRE")
           (progn
-            (setq wa w)
-            (setq pts (list (pr:ub fr 0.0 0.0) (pr:ub fr wa 0.0) (pr:ub fr wa (+ ds ti))
-                            (pr:ub fr genW (+ ds ti)) (pr:ub fr genW (+ ds ti wk)) (pr:ub fr 0.0 (+ ds ti wk))))
-            (pr:mahal-ekle "ANTRE" "ANTRE / KORİDOR" pts wa ds no (pr:ub fr (/ wa 2.0) (/ ds 2.0)))
+            (setq pts (pr:tekille
+                        (list (pr:ub fr (car ar) 0.0) (pr:ub fr (cadr ar) 0.0) (pr:ub fr (cadr ar) cv0)
+                              (pr:ub fr ue cv0) (pr:ub fr ue cv1) (pr:ub fr 0.0 cv1)
+                              (pr:ub fr 0.0 cv0) (pr:ub fr (car ar) cv0))))
+            (pr:mahal-ekle "ANTRE" "ANTRE / KORİDOR" pts gw ds no
+                           (pr:ub fr (+ u (/ gw 2.0)) (/ ds 2.0)))
             ;; daire giris kapisi (ortak hole acilir, kanat antreye)
-            (pr:kapi-ekle fr 0.0 wa 0.0 1 tp (nth 4 o)))
+            (pr:kapi-ekle fr u (+ u gw) 0.0 1 tp (nth 4 o)))
+          (if (and (pr:islak-mi o) (< dw (- ds 1e-6)))
+            ;; islak hacim koridor tarafinda, arkasinda vestiyer seridi
+            (progn
+              (if (null iu0) (setq iu0 u))
+              (setq iu1 (+ u gw))
+              (pr:mahal-ekle (car o) (cadr o) (pr:dik4 fr u (- ds dw) (+ u gw) ds)
+                             gw dw no (pr:ub fr (+ u (/ gw 2.0)) (- ds (/ dw 2.0))))
+              (pr:kapi-ekle fr u (+ u gw) ds -1 ti (nth 4 o)))
           (progn
-            (pr:mahal-ekle (car o) (cadr o) (pr:dik4 fr u 0.0 (+ u w) ds)
-                           w ds no (pr:ub fr (+ u (/ w 2.0)) (/ ds 2.0)))
-            (pr:kapi-ekle fr u (+ u w) ds -1 ti (nth 4 o))))
-        (setq u (+ u w ti)))
+            (pr:mahal-ekle (car o) (cadr o) (pr:dik4 fr u 0.0 (+ u gw) ds)
+                           gw ds no (pr:ub fr (+ u (/ gw 2.0)) (/ ds 2.0)))
+            (pr:kapi-ekle fr u (+ u gw) ds -1 ti (nth 4 o))
+            ;; yan cepheye alinan yatak odasi penceresi
+            (if (= (car o) "YATAK")
+              (cond ((and ilk disL) (pr:pencere frT 0.0 ds 0.0 1 td))
+                    ((and son disR) (pr:pencere frT 0.0 ds genW -1 td)))))))
+        (setq u (+ u gw ti) ilk nil))
+      ;; --- vestiyer / depo seridi (antreden girilir)
+      (if iu0
+        (progn
+          (setq ust (- ds dw ti))
+          (pr:mahal-ekle "DEPO" "VESTİYER / DEPO" (pr:dik4 fr iu0 0.0 iu1 ust)
+                         (- iu1 iu0) ust no (pr:ub fr (/ (+ iu0 iu1) 2.0) (/ ust 2.0)))
+          (pr:kapi-ekle frT 0.0 ust iu0 1 ti 0.80)))
       ;; --- daire etiketi (koridorda)
-      (setq etk (pr:ub fr (/ genW 2.0) (+ ds ti (/ wk 2.0))))
-      (pr:push (list "TX" "PR-DAIRE" etk 0.22
+      (pr:push (list "TX" "PR-DAIRE" (pr:ub fr (/ ue 2.0) (+ ds ti (/ wk 2.0))) 0.22
                      (strcat "DAİRE " (itoa no) " (" (pr:spec-adi spec) ")") 0.0))
-      (setq *pr-daireler* (cons (list no spec (if (cadddr sec) "cephe" "iç") genW derD) *pr-daireler*)))))
+      (setq *pr-daireler* (cons (list no spec (if (caddr aday) "cephe" "iç") genW derD) *pr-daireler*)))))
 
 ;;; ---------------------------------------------------------------------------
 ;;;  5. ORTAK ALANLAR: MERDIVEN EVI, ASANSOR, KAT HOLU
@@ -561,7 +717,10 @@
 
 ;; Sirali daireleri segmentlere bolup en dengeli dagilimi bulur.
 ;; segL: segment uzunluklari (3 adet). -> (enBuyukDoluluk (grup1 grup2 grup3))
-(defun pr:bolustur (gerek segL / n i j tp en iyi g1 g2 g3 f)
+;; Sirali daireleri segmentlere boler. Once sigan (doluluk <= 1) bolusumler,
+;; aralarinda da daire buyukluklerini birbirine en yakin tutan secilir
+;; (ornek planlarda ayni tip daireler esit genislikte). -> (doluluk (i j))
+(defun pr:bolustur (gerek segL / n i j tp iyi g1 g2 g3 f dz anahtar)
   (setq n (length gerek) tp (pr:p "TP") iyi nil i 0)
   (while (<= i n)
     (setq j i)
@@ -569,12 +728,22 @@
       (setq g1 (pr:alt gerek 0 i) g2 (pr:alt gerek i j) g3 (pr:alt gerek j n))
       (setq f (max (pr:doluluk g1 (car segL) tp)
                    (pr:doluluk g2 (cadr segL) tp)
-                   (pr:doluluk g3 (caddr segL) tp)))
-      (if (or (null iyi) (< f (- (car iyi) 1e-9)))
-        (setq iyi (list f (list i j))))
+                   (pr:doluluk g3 (caddr segL) tp))
+            dz (+ (pr:dengesizlik g1 (car segL) tp)
+                  (pr:dengesizlik g2 (cadr segL) tp)
+                  (pr:dengesizlik g3 (caddr segL) tp))
+            anahtar (if (<= f 1.0) dz (+ 1e6 f)))
+      (if (or (null iyi) (< anahtar (- (caddr iyi) 1e-9)))
+        (setq iyi (list f (list i j) anahtar)))
       (setq j (1+ j)))
     (setq i (1+ i)))
   iyi)
+
+;; Segmentteki dairelerin gereginden buyuk kalma olcusu; bos segment cezali
+(defun pr:dengesizlik (g L tp / f)
+  (cond ((null g) (if (> L 0.5) 1000.0 0.0))   ; kullanilmayan bos alan birakilmaz
+        (T (setq f (pr:doluluk g L tp))
+           (if (> f 1e-9) (* (length g) (pr:kare (- (/ 1.0 f) 1.0))) 1e6))))
 
 (defun pr:alt (l a b / res i)
   (setq res nil i a)
@@ -597,7 +766,9 @@
             x x0)
       (foreach no nolar
         (setq w (* (car gerek) (/ avail top)) gerek (cdr gerek))
-        (setq fr (list (list x yGiris) (list 1.0 0.0) (list 0.0 vYon)))
+        (setq fr (list (list x yGiris) (list 1.0 0.0) (list 0.0 vYon))
+              *pr-dis* (list (< x 1e-6) (> (+ x w) (- *pr-lin* 1e-6)))
+              *pr-giris-azami* 1e9)
         (pr:daire-yerlestir no (nth (1- no) (pr:p "SPECS")) fr w D)
         (setq x (+ x w tp))))
     (if (> (- x1 x0) 0.5)
@@ -615,22 +786,34 @@
     (progn
       (setq xc0 (if (= n 2) (/ (- Lin cw) 2.0) (- Lin cw))
             D (- xc0 tp)
-            f 0.0)
+            f 0.0
+            *pr-dis* (list T T) *pr-giris-azami* yh)
       (foreach s specs
         (setq f (max f (pr:doluluk (list (pr:daire-gerekli s D)) Din tp))))
       (list f xc0 D yh))))
 
-;; Duzen B degerlendirmesi
-(defun pr:duzen-b (Lin Din / specs tp cw dr xc0 segL gerek b)
+;; Duzen B degerlendirmesi. Merdiven cekirdegi arka sirada, daire genisliklerini
+;; en dengeli bolecek konuma kaydirilir (0,25 m adimla).
+(defun pr:duzen-b (Lin Din / specs tp cw dr xc0 segL gerek b iyi)
   (setq specs (pr:p "SPECS") tp (pr:p "TP")
         cw (pr:cekirdek-gen)
-        dr (/ (- Din *pr-kat-holu* tp tp) 2.0)
-        xc0 (/ (- Lin cw) 2.0))
+        dr (/ (- Din *pr-kat-holu* tp tp) 2.0))
   (if (> dr 1.0)
     (progn
-      (setq segL (list Lin (- xc0 tp) (- Lin xc0 cw tp))
-            gerek (mapcar '(lambda (s) (pr:daire-gerekli s dr)) specs)
-            b (pr:bolustur gerek segL))
+      (setq *pr-dis* (list nil nil) *pr-giris-azami* 1e9)
+      (setq gerek (mapcar '(lambda (s) (pr:daire-gerekli s dr)) specs)
+            xc0 0.0 iyi nil)
+      (while (<= xc0 (+ (- Lin cw) 1e-6))
+        (setq segL (list Lin (- xc0 tp) (- Lin xc0 cw tp))
+              b (pr:bolustur gerek segL))
+        ;; esitlikte ortaya yakin konum
+        (if (or (null iyi)
+                (< (caddr b) (- (car iyi) 1e-6))
+                (and (< (abs (- (caddr b) (car iyi))) 1e-6)
+                     (< (abs (- xc0 (/ (- Lin cw) 2.0))) (abs (- (cadr iyi) (/ (- Lin cw) 2.0))))))
+          (setq iyi (list (caddr b) xc0 b)))
+        (setq xc0 (+ xc0 0.25)))
+      (setq b (caddr iyi) xc0 (cadr iyi))
       (list (car b) xc0 dr (cadr b) gerek))))
 
 ;; ANA URETICI: dis olculer Lx, Ly (metre). Basarida T doner.
@@ -639,6 +822,7 @@
         *pr-uyarilar* nil *pr-daireler* nil *pr-hata-sayisi* 0 *pr-duzen* nil)
   (setq td (pr:p "TD") ti (pr:p "TI") tp (pr:p "TP") n (pr:p "N")
         Lin (- Lx td td) Din (- Ly td td)
+        *pr-lin* Lin
         cw (pr:cekirdek-gen) cl (pr:cekirdek-boy))
   (setq a (pr:duzen-a Lin Din) b (pr:duzen-b Lin Din))
   (cond
@@ -655,6 +839,7 @@
                                            (list (+ xc0 cw) yh) (list xc0 yh))
                     cw yh 0 (list (+ xc0 (/ cw 2.0)) (/ yh 2.0)))
      (pr:cekirdek xc0 (+ yh ti) Din ti)
+     (setq *pr-dis* (list T T) *pr-giris-azami* yh)
      ;; sol daire: giris x = xc0 - tp, u ekseni +y, v ekseni -x
      (pr:daire-yerlestir 1 (nth 0 (pr:p "SPECS"))
                          (list (list (- xc0 tp) 0.0) (list 0.0 1.0) (list -1.0 0.0)) Din D)
@@ -964,7 +1149,7 @@
     ("t_KILER" "Kiler:")
     ("t_BALKON" "Balkon:")
     ("tumune" "Bu daireyi tüm dairelere kopyala")
-    ("baslik" "Plan Robotu 1.2 - Kat Planı")
+    ("baslik" "Plan Robotu 1.3 - Kat Planı")
     ("b_genel" "Genel Ayarlar")
     ("b_mahal" "Daire Mahalleri")
     ("accept" "Tamam")

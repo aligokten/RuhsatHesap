@@ -1,7 +1,7 @@
 // Plan Robotu formu - araclar/dcl_uret.py ile uretilir, elle duzenlemeyin.
 // Kodlama: Windows-1254 (AutoCAD .dcl dosyalarini ANSI okur).
 planrobotu : dialog {
-  key = "baslik"; label = "Plan Robotu 1.2 - Kat Planý";
+  key = "baslik"; label = "Plan Robotu 1.3 - Kat Planý";
   : text { key = "t_baslik"; label = "Planlý Alanlar Ýmar Yönetmeliði asgari ölçülerine göre kat planý"; width = 72; }
   : row {
     : boxed_column {

@@ -102,7 +102,11 @@ def svg(interp, Lx, Ly, td, path, baslik):
 
 
 def calistir(svg_dir=None):
+    from lisp_lint import kontrol
     hatalar = 0
+    for x in kontrol(LSP):
+        print("[HATA] lint: " + x)
+        hatalar += 1
     for ad, Lx, Ly, specs, td, ti, tp, asansor, bekle in SENARYOLAR:
         it = Interp()
         it.load(LSP)
@@ -153,6 +157,17 @@ def calistir(svg_dir=None):
             hatalar += 1
         else:
             print("[OK ] %s: plan uretilmedi -> %s" % (sg[0], (it.g[Sym("*pr-rapor*")] or ["?"])[-1]))
+    # Bant genislikleri her zaman daire genisligini tam doldurmali
+    it = Interp()
+    it.load(LSP)
+    kur(it, 28.0, 20.0, [S41], 0.25, 0.10, 0.20, False)
+    g = it.fn("pr:bant-dagit", to_lisp([[c for c in o] for o in it.fn("pr:adaylar", to_lisp(S41))[0][0]]),
+              to_lisp([4.0, 4.0, 4.0, 4.0]), 27.0, NIL)
+    if g is NIL or abs(sum(g) - 27.0) > 1e-6:
+        print("[HATA] bant-dagit genisligi doldurmuyor: %r" % (g,))
+        hatalar += 1
+    else:
+        print("[OK ] bant-dagit genisligi tam dolduruyor (%s)" % ", ".join("%.2f" % x for x in g))
     print("\nToplam hatali senaryo: %d" % hatalar)
     return hatalar
 
