@@ -901,38 +901,86 @@
       (close f)))
   yol)
 
+;; DCL dosyasi BILEREK yalniz ASCII karakter icerir: AutoCAD .dcl dosyalarini
+;; ANSI kod sayfasiyla okudugu icin Turkce harfler bozuluyordu. Tum Turkce
+;; etiketler form acildiginda LISP'ten (Unicode) set_tile ile yazilir.
 (setq *pr-dcl*
   '("planrobotu : dialog {"
-    "  label = \"Plan Robotu - Kat Planı (Planlı Alanlar İmar Yönetmeliği)\";"
+    "  key = \"baslik\"; label = \"Plan Robotu\";"
+    "  : text { key = \"t_baslik\"; width = 72; }"
     "  : row {"
     "    : boxed_column {"
-    "      label = \"Genel Ayarlar\";"
-    "      : edit_box { key = \"daire_sayisi\"; label = \"Daire sayısı:\"; edit_width = 6; }"
-    "      : popup_list { key = \"birim\"; label = \"Çizim birimi:\"; edit_width = 8; }"
-    "      : edit_box { key = \"dis_duvar\"; label = \"Dış duvar kalınlığı (cm):\"; edit_width = 6; }"
-    "      : edit_box { key = \"ic_duvar\"; label = \"İç duvar kalınlığı (cm):\"; edit_width = 6; }"
-    "      : edit_box { key = \"ayirici_duvar\"; label = \"Daire / hol ayırıcı duvar (cm):\"; edit_width = 6; }"
-    "      : edit_box { key = \"kat_yuk\"; label = \"Kat yüksekliği (cm):\"; edit_width = 6; }"
-    "      : toggle { key = \"asansor\"; label = \"Asansör kuyusu çiz\"; }"
-    "      : toggle { key = \"rapor\"; label = \"Uygunluk raporunu çizime yaz\"; }"
+    "      key = \"b_genel\"; label = \"Genel\";"
+    "      : row { : text { key = \"t_daire_sayisi\"; width = 30; } : edit_box { key = \"daire_sayisi\"; edit_width = 6; fixed_width = true; } }"
+    "      : row { : text { key = \"t_birim\"; width = 30; } : popup_list { key = \"birim\"; edit_width = 7; fixed_width = true; } }"
+    "      : row { : text { key = \"t_dis_duvar\"; width = 30; } : edit_box { key = \"dis_duvar\"; edit_width = 6; fixed_width = true; } }"
+    "      : row { : text { key = \"t_ic_duvar\"; width = 30; } : edit_box { key = \"ic_duvar\"; edit_width = 6; fixed_width = true; } }"
+    "      : row { : text { key = \"t_ayirici_duvar\"; width = 30; } : edit_box { key = \"ayirici_duvar\"; edit_width = 6; fixed_width = true; } }"
+    "      : row { : text { key = \"t_kat_yuk\"; width = 30; } : edit_box { key = \"kat_yuk\"; edit_width = 6; fixed_width = true; } }"
+    "      : row { : toggle { key = \"asansor\"; width = 3; fixed_width = true; } : text { key = \"t_asansor\"; width = 33; } }"
+    "      : row { : toggle { key = \"rapor\"; width = 3; fixed_width = true; } : text { key = \"t_rapor\"; width = 33; } }"
+    "      : text { key = \"alan\"; width = 38; }"
     "    }"
     "    : boxed_column {"
-    "      label = \"Daire Mahalleri\";"
-    "      : popup_list { key = \"daire_sec\"; label = \"Düzenlenen daire:\"; edit_width = 18; }"
-    "      : popup_list { key = \"sablon\"; label = \"Hazır şablon:\"; edit_width = 18; }"
-    "      : edit_box { key = \"m_SALON\"; label = \"Salon / Oturma odası:\"; edit_width = 4; }"
-    "      : edit_box { key = \"m_YATAK\"; label = \"Yatak odası:\"; edit_width = 4; }"
-    "      : edit_box { key = \"m_MUTFAK\"; label = \"Mutfak:\"; edit_width = 4; }"
-    "      : edit_box { key = \"m_BANYO\"; label = \"Banyo:\"; edit_width = 4; }"
-    "      : edit_box { key = \"m_WC\"; label = \"WC (hela):\"; edit_width = 4; }"
-    "      : edit_box { key = \"m_KILER\"; label = \"Kiler:\"; edit_width = 4; }"
-    "      : edit_box { key = \"m_BALKON\"; label = \"Balkon:\"; edit_width = 4; }"
-    "      : button { key = \"tumune\"; label = \"Bu daireyi tüm dairelere kopyala\"; }"
+    "      key = \"b_mahal\"; label = \"Daire\";"
+    "      : row { : text { key = \"t_daire_sec\"; width = 18; } : popup_list { key = \"daire_sec\"; edit_width = 16; fixed_width = true; } }"
+    "      : row { : text { key = \"t_sablon\"; width = 18; } : popup_list { key = \"sablon\"; edit_width = 16; fixed_width = true; } }"
+    "      : row { : text { key = \"t_SALON\"; width = 26; } : edit_box { key = \"m_SALON\"; edit_width = 4; fixed_width = true; } }"
+    "      : row { : text { key = \"t_YATAK\"; width = 26; } : edit_box { key = \"m_YATAK\"; edit_width = 4; fixed_width = true; } }"
+    "      : row { : text { key = \"t_MUTFAK\"; width = 26; } : edit_box { key = \"m_MUTFAK\"; edit_width = 4; fixed_width = true; } }"
+    "      : row { : text { key = \"t_BANYO\"; width = 26; } : edit_box { key = \"m_BANYO\"; edit_width = 4; fixed_width = true; } }"
+    "      : row { : text { key = \"t_WC\"; width = 26; } : edit_box { key = \"m_WC\"; edit_width = 4; fixed_width = true; } }"
+    "      : row { : text { key = \"t_KILER\"; width = 26; } : edit_box { key = \"m_KILER\"; edit_width = 4; fixed_width = true; } }"
+    "      : row { : text { key = \"t_BALKON\"; width = 26; } : edit_box { key = \"m_BALKON\"; edit_width = 4; fixed_width = true; } }"
+    "      : button { key = \"tumune\"; label = \"Tum dairelere kopyala\"; }"
     "    }"
     "  }"
-    "  : text { key = \"bilgi\"; width = 70; }"
+    "  : text { key = \"bilgi\"; width = 72; }"
     "  ok_cancel;"
     "}"))
+
+;; Form etiketleri (Unicode, calisma aninda yazilir)
+(setq *pr-form-yazilar*
+  '(("t_baslik" "Planlı Alanlar İmar Yönetmeliği asgari ölçülerine göre kat planı")
+    ("t_daire_sayisi" "Daire sayısı:")
+    ("t_birim" "Çizim birimi:")
+    ("t_dis_duvar" "Dış duvar kalınlığı (cm):")
+    ("t_ic_duvar" "İç duvar kalınlığı (cm):")
+    ("t_ayirici_duvar" "Daire / hol ayırıcı duvar (cm):")
+    ("t_kat_yuk" "Kat yüksekliği (cm):")
+    ("t_asansor" "Asansör kuyusu çiz")
+    ("t_rapor" "Uygunluk raporunu çizime yaz")
+    ("t_daire_sec" "Düzenlenen daire:")
+    ("t_sablon" "Hazır şablon:")
+    ("t_SALON" "Salon / Oturma odası:")
+    ("t_YATAK" "Yatak odası:")
+    ("t_MUTFAK" "Mutfak:")
+    ("t_BANYO" "Banyo:")
+    ("t_WC" "WC (hela):")
+    ("t_KILER" "Kiler:")
+    ("t_BALKON" "Balkon:")
+    ("tumune" "Bu daireyi tüm dairelere kopyala")
+    ("baslik" "Plan Robotu - Kat Planı")
+    ("b_genel" "Genel Ayarlar")
+    ("b_mahal" "Daire Mahalleri")
+    ("accept" "Tamam")
+    ("cancel" "İptal")))
+
+;; Secilen dikdortgenin olculerini forma yazar (birim hatasini gormek icin)
+(defun pr:f-alan-goster (/ olc lx ly)
+  (setq olc (nth (atoi (get_tile "birim")) '(100.0 1.0 1000.0))
+        lx (/ (car *pr-secim-boy*) olc)
+        ly (/ (cadr *pr-secim-boy*) olc))
+  (set_tile "alan" (strcat "Seçilen alan: " (pr:fmt lx) " x " (pr:fmt ly) " m"))
+  (if (or (< lx 6.0) (> lx 400.0))
+    (set_tile "bilgi" "Uyarı: alan ölçüsü bina için olağan dışı - çizim birimini kontrol edin.")
+    (set_tile "bilgi" "")))
+
+;; Dikdortgen boyutundan cizim birimini tahmin eder (0=cm 1=m 2=mm)
+(defun pr:birim-tahmin (uzun)
+  (cond ((<= uzun 400.0) "1")
+        ((<= uzun 40000.0) "0")
+        (T "2")))
 
 ;; Oturum boyunca hatirlanan son form degerleri
 (if (null *pr-form*)
@@ -1047,31 +1095,41 @@
 (defun pr:form-ac (/ id sonuc)
   (setq id (load_dialog (pr:dcl-yolu)))
   (if (or (< id 0) (not (new_dialog "planrobotu" id)))
-    (progn (princ "\nPlan Robotu formu yüklenemedi (PlanRobotu.dcl).") nil)
+    (progn (alert "Plan Robotu formu yüklenemedi (PlanRobotu.dcl).") nil)
     (progn
       (setq *pr-f-cur* 0)
       (while (< (length *pr-form-specs*) (pr:tamsayi (pr:f "daire_sayisi")))
         (setq *pr-form-specs* (append *pr-form-specs* (list (last *pr-form-specs*)))))
+      (foreach y *pr-form-yazilar* (set_tile (car y) (cadr y)))
       (start_list "birim") (mapcar 'add_list '("cm" "m" "mm")) (end_list)
       (start_list "sablon")
       (add_list "Seçiniz...")
       (foreach s *pr-sablonlar* (add_list (car s)))
       (end_list)
+      (pr:f-set "birim" (pr:birim-tahmin (car *pr-secim-boy*)))
       (foreach k '("daire_sayisi" "birim" "dis_duvar" "ic_duvar" "ayirici_duvar" "kat_yuk" "asansor" "rapor")
         (set_tile k (pr:f k)))
       (set_tile "sablon" "0")
       (pr:f-liste-adlari)
       (pr:f-mahal-yaz (nth 0 *pr-form-specs*))
+      (pr:f-alan-goster)
       (action_tile "daire_sayisi" "(pr:f-daire-sayisi $value)")
+      (action_tile "birim" "(pr:f-alan-goster)")
       (action_tile "daire_sec" "(pr:f-daire-sec $value)")
       (action_tile "sablon" "(pr:f-sablon $value)")
       (foreach k *pr-form-kodlar* (action_tile (strcat "m_" k) "(pr:f-mahal-degisti)"))
       (action_tile "tumune" "(pr:f-tumune)")
-      (action_tile "accept" "(pr:f-tamam)")
+      (action_tile "accept" "(pr:f-tamam-guvenli)")
       (action_tile "cancel" "(done_dialog 0)")
       (setq sonuc (start_dialog))
       (unload_dialog id)
       (= sonuc 1))))
+
+;; OK dugmesi: olasi bir hata formu sessizce kilitlemesin, mesaj gostersin
+(defun pr:f-tamam-guvenli (/ r)
+  (setq r (vl-catch-all-apply 'pr:f-tamam nil))
+  (if (vl-catch-all-error-p r)
+    (set_tile "bilgi" (strcat "Hata: " (vl-catch-all-error-message r)))))
 
 ;; Form degerlerinden hesap parametrelerini (metre) kurar
 (defun pr:parametreler (Lx Ly / cm)
@@ -1094,41 +1152,70 @@
 ;;;  11. KOMUT
 ;;; ---------------------------------------------------------------------------
 
-(defun c:PLANROBOTU (/ *error* doc sel pts cer olc z eskiOsm)
+(defun pr:uygula (sel cer / olc z)
+  (setq olc (pr:olcek)
+        z (cond ((cdr (assoc 38 (entget (car sel))))) (0.0)))
+  (pr:parametreler (/ (cadddr cer) olc) (/ (nth 4 cer) olc))
+  (if (pr:plan-uret (pr:p "LX") (pr:p "LY"))
+    (progn
+      (pr:son-islem)
+      (pr:katmanlari-hazirla)
+      (pr:ciz (list (car cer) (cadr cer) (caddr cer) olc z))
+      T)
+    (progn
+      (setq *pr-rapor* (reverse *pr-rapor*))
+      nil)))
+
+(defun pr:metin-birlestir (l / s)
+  (setq s "")
+  (foreach x l (setq s (strcat s x "\n")))
+  s)
+
+(defun c:PLANROBOTU (/ *error* doc sel pts cer r eskiOsm)
   (setq doc (vla-get-ActiveDocument (vlax-get-acad-object)))
   (defun *error* (msg)
     (if eskiOsm (setvar "OSMODE" eskiOsm))
     (vla-EndUndoMark doc)
     (if (not (wcmatch (strcase msg T) "*break*,*cancel*,*exit*,*iptal*"))
-      (princ (strcat "\nPlan Robotu hatası: " msg)))
+      (alert (strcat "Plan Robotu hatası: " msg)))
     (princ))
   (setq sel (entsel "\nKat planı çizilecek dikdörtgeni (kapalı polyline) seçin: "))
   (cond
     ((null sel) (princ "\nSeçim yapılmadı."))
     ((/= (cdr (assoc 0 (entget (car sel)))) "LWPOLYLINE")
-     (princ "\nSeçilen nesne LWPOLYLINE değil."))
+     (alert "Seçilen nesne LWPOLYLINE değil.\nDikdörtgeni RECTANG veya kapalı PLINE ile çizin."))
     ((null (setq cer (pr:dikdortgen-cerceve (setq pts (pr:lwpoly-noktalari (car sel))))))
-     (princ "\nSeçilen polyline 4 köşeli ve dik açılı bir dikdörtgen olmalıdır."))
-    ((pr:form-ac)
-     (setq olc (pr:olcek)
-           z (cond ((cdr (assoc 38 (entget (car sel))))) (0.0)))
-     (pr:parametreler (/ (cadddr cer) olc) (/ (nth 4 cer) olc))
-     (if (pr:plan-uret (pr:p "LX") (pr:p "LY"))
+     (alert "Seçilen polyline 4 köşeli ve dik açılı bir dikdörtgen olmalıdır."))
+    (T
+     (setq *pr-secim-boy* (list (cadddr cer) (nth 4 cer)))
+     (if (pr:form-ac)
        (progn
-         (pr:son-islem)
          (vla-StartUndoMark doc)
          (setq eskiOsm (getvar "OSMODE"))
          (setvar "OSMODE" 0)
-         (pr:katmanlari-hazirla)
-         (pr:ciz (list (car cer) (cadr cer) (caddr cer) olc z))
+         (setq r (vl-catch-all-apply 'pr:uygula (list sel cer)))
          (setvar "OSMODE" eskiOsm)
          (setq eskiOsm nil)
          (vla-EndUndoMark doc)
-         (foreach s *pr-rapor* (princ (strcat "\n" s)))
-         (princ (strcat "\n\nPlan Robotu tamamlandı. "
-                        (if (= *pr-uygunsuz* 0) "Tüm kontroller UYGUN."
-                            (strcat (itoa *pr-uygunsuz*) " uygunsuzluk raporlandı.")))))
-       (foreach s (reverse *pr-rapor*) (princ (strcat "\n" s))))))
+         (cond
+           ((vl-catch-all-error-p r)
+            (alert (strcat "Plan Robotu çizim sırasında hata verdi:\n"
+                           (vl-catch-all-error-message r))))
+           ((null r)
+            (foreach s *pr-rapor* (princ (strcat "\n" s)))
+            (alert (strcat "Plan çizilemedi:\n\n" (pr:metin-birlestir *pr-rapor*)
+                           "\nSeçilen alan: " (pr:fmt (pr:p "LX")) " x " (pr:fmt (pr:p "LY"))
+                           " m (çizim birimi doğru mu?)")))
+           (T
+            (foreach s *pr-rapor* (princ (strcat "\n" s)))
+            (princ "\n")
+            (alert (strcat "Plan Robotu tamamlandı.\n\n"
+                           "Alan: " (pr:fmt (pr:p "LX")) " x " (pr:fmt (pr:p "LY")) " m, "
+                           (itoa (pr:p "N")) " daire\n"
+                           (if (= *pr-uygunsuz* 0) "Tüm kontroller UYGUN."
+                               (strcat (itoa *pr-uygunsuz*) " uygunsuzluk raporlandı."))
+                           "\n\nAyrıntılı rapor komut satırında (F2)"
+                           (if (pr:p "RAPOR") " ve planın sağında." ".")))))))))
   (princ))
 
 (defun c:PROBOT () (c:PLANROBOTU))
