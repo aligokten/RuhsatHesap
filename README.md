@@ -46,6 +46,10 @@ Bu paket, Ruhsat Hesap web arayüzünü Archicad 29.2.0 Build 5003 (Windows x64)
 - JSON dosyasını kaydetme
 - Hesap motorunun Archicad API'den ayrılmış test edilebilir C++20 yapısı
 
+## AutoCAD Plan Robotu
+
+Depoda ayrıca AutoCAD için bağımsız bir **Plan Robotu** (AutoLISP + DCL) bulunur. Seçilen dikdörtgenin içine, formda girilen daire sayısı ve mahal programına göre Planlı Alanlar İmar Yönetmeliği asgari ölçülerini sağlayan bir kat planı çizer ve uygunluk raporu üretir. Ayrıntılar [AutoCAD/PlanRobotu/README.md](AutoCAD/PlanRobotu/README.md) dosyasındadır.
+
 ## Geliştirme durumu
 
 Bu paket `0.6.0` geliştirme sürümüdür. Graphisoft tarafından onaylanan Developer ID ve **Ruhsat Hesap** Local ID, `RFIX/AddOnFix.grc` içindeki `MDID` kaynağına uygulanmıştır. Eklenti yeniden derlendiğinde normal Archicad 29 oturumunda yüklenmeye hazırdır.

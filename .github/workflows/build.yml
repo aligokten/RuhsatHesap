@@ -40,3 +40,14 @@ jobs:
       - name: Run build script
         run: |
           python Tools/BuildAddOn.py --configFile config.json --acVersion ${{ matrix.ac-version }} --buildConfig Debug RelWithDebInfo
+
+  plan-robotu:
+    # AutoCAD Plan Robotu (AutoLISP) geometri/rapor cekirdegi testleri
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Plan Robotu testleri
+        run: python AutoCAD/PlanRobotu/test/test_plan_robotu.py
